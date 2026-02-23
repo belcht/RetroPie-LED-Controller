@@ -42,3 +42,74 @@ cd /home/pi
 git clone https://github.com/yourusername/rpi5-ws2812-led-control.git
 cd rpi5-ws2812-led-control
 sudo bash install.sh
+
+The script will:
+
+Create /home/pi/LEDControl/ project directory
+Set up a virtual environment
+Install rpi5-ws2812
+Copy the main script and default config
+Enable SPI (non-interactively)
+Install and enable systemd services
+Add the RetroPie menu module
+
+After installation:
+
+Edit /home/pi/ledcontrol.toml to set your default animation/color (see below)
+Restart service:Bashsudo systemctl restart ledcontrol.service
+Reboot to test boot behavior:Bashsudo reboot
+
+Configuration
+All persistent settings live in /home/pi/ledcontrol.toml. Example:
+[general]
+default_animate = "kitt"      # "kitt", "glow", "cycle", "rainbow", "meteor", "twinkle", "off", or "" for solid only
+default_color = "red"
+
+[glow]
+min_brightness = 0.3
+max_brightness = 1.0
+duration = 2.5
+
+[kitt]
+tail_length = 6
+base_speed = 0.04
+
+[cycle]
+cycle_duration = 10.0
+fade_time = 1.5
+fade_enabled = true
+
+[rainbow]
+speed = 0.02
+
+[meteor]
+tail_length = 8
+speed = 0.05
+
+[twinkle]
+num_sparkles = 5
+fade_speed = 0.04
+
+After editing, restart the service:
+Bashsudo systemctl restart ledcontrol.service
+Usage
+
+RetroPie Menu: Go to RetroPie Setup → Configuration/tools → WS2812 LED Control
+Choose a color (sets solid mode) or animation (uses current color)
+Manual control:Bash# Quick change helper (create this script if you want)
+~/set_led.sh kitt red
+~/set_led.sh rainbow
+~/set_led.sh off
+Immediate off (one-shot):Bash/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --animate off
+
+Troubleshooting
+
+LEDs stay on after reboot → Check journalctl -u leds-off.service — ensure shutdown hook ran.
+No lights → Confirm SPI enabled (lsmod | grep spi), wiring, external 5V power.
+Module not found → Re-run pip install rpi5-ws2812 inside venv.
+Service fails → sudo systemctl status ledcontrol.service and journalctl -u ledcontrol.service -e
+
+Credits / License
+Built with help from Grok (xAI).
+MIT License — feel free to fork, modify, share.
+Enjoy your glowing RetroPie setup!
