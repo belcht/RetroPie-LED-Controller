@@ -1,0 +1,15 @@
+[Unit]
+Description=Turn off WS2812 LEDs VERY early in shutdown/reboot
+DefaultDependencies=no
+# Run as early as possible - before almost everything
+Before=umount.target shutdown.target reboot.target halt.target sysinit.target basic.target network.target
+Conflicts=shutdown.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/leds-off-on-shutdown.sh
+RemainAfterExit=true
+TimeoutSec=10  # Give it time to run multiple clears
+
+[Install]
+WantedBy=halt.target reboot.target shutdown.target

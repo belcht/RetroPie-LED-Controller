@@ -1,0 +1,17 @@
+[Unit]
+Description=WS2812 LED Control Service (LEDControl.py)
+After=network.target multi-user.target
+
+[Service]
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/LEDControl
+ExecStart=/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py 
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target

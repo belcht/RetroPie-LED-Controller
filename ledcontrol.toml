@@ -1,0 +1,31 @@
+# ledcontrol.toml - Configuration for LEDControl.py
+# Edit this file to change defaults without command-line flags
+
+[general]
+default_animate = "kitt"
+default_color = "red"
+
+[glow]
+min_brightness = 0.5
+max_brightness = 1.0
+duration = 1.0
+
+[cycle]
+cycle_duration = 10.0
+fade_time = 1.5
+fade_enabled = true
+
+[kitt]
+tail_length = 6
+base_speed = 0.04
+
+[meteor]
+tail_length = 8
+speed = 0.05
+
+[twinkle]
+num_sparkles = 5
+fade_speed = 0.04
+
+[rainbow]
+speed = 0.02
