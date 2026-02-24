@@ -22,6 +22,19 @@ COLOR_MAP = {
     'off':    Color(0, 0, 0)
 }
 
+# === Global Brightness Limiter ===
+global_brightness = 1.0  # Will be overwritten by CLI or config
+
+def limited_color(color: Color) -> Color:
+    """Apply global brightness limit to a Color object"""
+    if global_brightness >= 1.0:
+        return color
+    return Color(
+        int(color.r * global_brightness),
+        int(color.g * global_brightness),
+        int(color.b * global_brightness)
+    )
+
 # Wheel function for rainbow colors
 def wheel(pos: int) -> Color:
     pos = pos & 255
@@ -53,7 +66,7 @@ def load_config(config_path: Path) -> dict:
     return config
 
 # ────────────────────────────────────────────────
-# Animations
+# Animations (updated to use limited_color)
 # ────────────────────────────────────────────────
 
 def run_kitt(strip, chase_color, config: dict):
@@ -66,6 +79,7 @@ def run_kitt(strip, chase_color, config: dict):
     strip.show()
     try:
         while True:
+            # Forward
             for pos in range(-tail_length + 1, NUM_LEDS + tail_length):
                 strip.set_all_pixels(off)
                 for t in range(tail_length):
@@ -75,9 +89,10 @@ def run_kitt(strip, chase_color, config: dict):
                         r = int(chase_color.r * brightness)
                         g = int(chase_color.g * brightness)
                         b = int(chase_color.b * brightness)
-                        strip._pixels[idx] = Color(r, g, b)
+                        strip._pixels[idx] = limited_color(Color(r, g, b))
                 strip.show()
                 time.sleep(base_speed)
+            # Backward
             for pos in range(NUM_LEDS + tail_length - 2, -tail_length, -1):
                 strip.set_all_pixels(off)
                 for t in range(tail_length):
@@ -87,7 +102,7 @@ def run_kitt(strip, chase_color, config: dict):
                         r = int(chase_color.r * brightness)
                         g = int(chase_color.g * brightness)
                         b = int(chase_color.b * brightness)
-                        strip._pixels[idx] = Color(r, g, b)
+                        strip._pixels[idx] = limited_color(Color(r, g, b))
                 strip.show()
                 time.sleep(base_speed)
     except KeyboardInterrupt:
@@ -108,12 +123,14 @@ def run_glow(strip, base_color, config: dict):
     while True:
         for step in range(num_steps + 1):
             b = min_b + (max_b - min_b) * (step / num_steps)
-            strip.set_all_pixels(Color(int(base_color.r * b), int(base_color.g * b), int(base_color.b * b)))
+            col = Color(int(base_color.r * b), int(base_color.g * b), int(base_color.b * b))
+            strip.set_all_pixels(limited_color(col))
             strip.show()
             time.sleep(dur / num_steps)
         for step in range(num_steps + 1):
             b = max_b - (max_b - min_b) * (step / num_steps)
-            strip.set_all_pixels(Color(int(base_color.r * b), int(base_color.g * b), int(base_color.b * b)))
+            col = Color(int(base_color.r * b), int(base_color.g * b), int(base_color.b * b))
+            strip.set_all_pixels(limited_color(col))
             strip.show()
             time.sleep(dur / num_steps)
 
@@ -126,9 +143,9 @@ def run_cycle(strip, config: dict, cycle_duration=None, fade_time=None, fade_ena
     print(f"Cycle: {len(colors_list)} colors, {cycle_duration}s each, fade:{fade_enabled}")
     current_idx = 0
     while True:
-        current = colors_list[current_idx]
+        current = limited_color(colors_list[current_idx])
         next_idx = (current_idx + 1) % len(colors_list)
-        next_c = colors_list[next_idx]
+        next_c = limited_color(colors_list[next_idx])
         strip.set_all_pixels(current)
         strip.show()
         time.sleep(max(0, cycle_duration - fade_time))
@@ -136,12 +153,18 @@ def run_cycle(strip, config: dict, cycle_duration=None, fade_time=None, fade_ena
             steps = 30
             for s in range(steps + 1):
                 p = s / steps
-                strip.set_all_pixels(Color(int(current.r * (1-p)), int(current.g * (1-p)), int(current.b * (1-p))))
+                r = int(colors_list[current_idx].r * (1-p))
+                g = int(colors_list[current_idx].g * (1-p))
+                b = int(colors_list[current_idx].b * (1-p))
+                strip.set_all_pixels(limited_color(Color(r, g, b)))
                 strip.show()
                 time.sleep(fade_time / steps)
             for s in range(steps + 1):
                 p = s / steps
-                strip.set_all_pixels(Color(int(next_c.r * p), int(next_c.g * p), int(next_c.b * p)))
+                r = int(colors_list[next_idx].r * p)
+                g = int(colors_list[next_idx].g * p)
+                b = int(colors_list[next_idx].b * p)
+                strip.set_all_pixels(limited_color(Color(r, g, b)))
                 strip.show()
                 time.sleep(fade_time / steps)
         else:
@@ -154,7 +177,7 @@ def run_rainbow(strip, config: dict):
     j = 0
     while True:
         for i in range(NUM_LEDS):
-            strip._pixels[i] = wheel((i * 256 // NUM_LEDS + j) & 255)
+            strip._pixels[i] = limited_color(wheel((i * 256 // NUM_LEDS + j) & 255))
         strip.show()
         j = (j + 1) % 256
         time.sleep(speed)
@@ -172,7 +195,10 @@ def run_meteor(strip, color, config: dict):
                 idx = pos - t
                 if 0 <= idx < NUM_LEDS:
                     b = 1.0 - (t / tail_length)
-                    strip._pixels[idx] = Color(int(color.r * b), int(color.g * b), int(color.b * b))
+                    r = int(color.r * b)
+                    g = int(color.g * b)
+                    b = int(color.b * b)
+                    strip._pixels[idx] = limited_color(Color(r, g, b))
             strip.show()
             time.sleep(speed)
         time.sleep(0.5)
@@ -202,7 +228,7 @@ def run_twinkle(strip, base_color, config: dict):
                 r = int(s['color'].r * s['bright'])
                 g = int(s['color'].g * s['bright'])
                 b = int(s['color'].b * s['bright'])
-                strip._pixels[i] = Color(r, g, b)
+                strip._pixels[i] = limited_color(Color(r, g, b))
                 s['bright'] -= fade_speed
                 if s['bright'] <= 0:
                     sparkles[i] = None
@@ -214,13 +240,15 @@ def run_twinkle(strip, base_color, config: dict):
 # ────────────────────────────────────────────────
 
 def main():
+    global global_brightness  # Allow modification
+
     parser = argparse.ArgumentParser(description='WS2812B LED control on Raspberry Pi 5')
     parser.add_argument('--config', type=Path, default=Path.home() / 'ledcontrol.toml',
-                        help='Path to TOML config file (default: ~/ledcontrol.toml)')
-    parser.add_argument('-color', '--color', choices=list(COLOR_MAP.keys()), default=None,
-                        help='Override color')
-    parser.add_argument('-animate', '--animate', choices=['kitt','glow','cycle','rainbow','meteor','twinkle','off'], default=None,
-                        help='Override animation mode (use "off" to turn LEDs off and exit)')
+                        help='Path to TOML config file')
+    parser.add_argument('-color', '--color', choices=list(COLOR_MAP.keys()), default=None)
+    parser.add_argument('-animate', '--animate', choices=['kitt','glow','cycle','rainbow','meteor','twinkle','off'], default=None)
+    parser.add_argument('--global-brightness', type=float, default=None,
+                        help='Global brightness limit (0.0–1.0, e.g. 0.8 = 80%)')
 
     # Glow overrides
     parser.add_argument('--min-brightness', type=float, default=None)
@@ -237,7 +265,16 @@ def main():
     # Load config
     config = load_config(args.config)
 
-    # Resolve values: CLI > config > defaults
+    # Resolve global brightness: CLI > config > 1.0
+    global_brightness = (
+        args.global_brightness
+        if args.global_brightness is not None
+        else config.get('general', {}).get('global_brightness', 1.0)
+    )
+    global_brightness = max(0.0, min(1.0, global_brightness))
+    print(f"Global brightness limit: {global_brightness*100:.0f}%")
+
+    # Resolve animation & color
     animate = args.animate or config.get('general', {}).get('default_animate', '')
     color_name = args.color or config.get('general', {}).get('default_color', 'white')
     color = COLOR_MAP.get(color_name, Color(255, 255, 255))
@@ -246,7 +283,7 @@ def main():
     if animate == 'off' or color_name == 'off':
         print("Off mode requested - clearing LEDs and exiting")
         strip = WS2812SpiDriver(spi_bus=SPI_BUS, spi_device=SPI_DEVICE, led_count=NUM_LEDS).get_strip()
-        strip.set_all_pixels(Color(0, 0, 0))
+        strip.set_all_pixels(limited_color(Color(0, 0, 0)))
         strip.show()
         sys.exit(0)
 
@@ -281,7 +318,7 @@ def main():
                 run_twinkle(strip, color, config)
         else:
             print(f"Setting solid color: {color_name}")
-            strip.set_all_pixels(color)
+            strip.set_all_pixels(limited_color(color))
             strip.show()
             print("Press Ctrl+C to exit")
             while True:
@@ -293,7 +330,7 @@ def main():
         raise
     finally:
         print("Turning off LEDs...")
-        strip.set_all_pixels(Color(0,0,0))
+        strip.set_all_pixels(limited_color(Color(0,0,0)))
         strip.show()
 
 if __name__ == "__main__":
