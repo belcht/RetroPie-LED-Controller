@@ -23,15 +23,18 @@ Perfect for adding visual flair to your RetroPie cabinet, arcade machine, or any
 - Raspberry Pi 5 (tested on Bookworm)
 - Raspberry Pi OS (64-bit recommended)
 - WS2812 LED strip (14 LEDs in this example — adjustable in script)
-- External 5V power supply (or use the 3.3v GPIO pin for short LED runs) for the strip (common GND with Pi)
+- External 5V power supply (or use the 5v output pin for short LED runs of 14 or less) for the strip (common GND with Pi)
 - SPI enabled (`raspi-config` → Interface Options → SPI → Yes)
 
 ## Wiring
 - LED Data In → Pi GPIO 10 (MOSI, physical pin 19)
 - LED GND → Pi GND (any GND pin)
-- LED 5V → External 5V supply (do **not** power long strips from Pi 5V pins) (short runs may be powered from 3.3v gpio pin)
+- LED 5V → External 5V supply (do **not** power long strips from Pi 5V pins) (short runs may be powered from 5v output pin of 14 or less)
 
 Recommended: 330–470Ω resistor in series on data line + 1000µF capacitor across 5V/GND at strip start.
+
+## If Wiring direct to pi - use at own risk.
+I have been warned repeatedly that powering even a short LED strip directly from the Pi 5 is not a good idea.  Each LED can consume at max white brightness 60mA.  14 WS2812 LEDs at max bright white can consume .84 amps.  By calculations, a normal running pi should have this headroom.  Obviously, if you spike the CPU the power draw could create voltage drops.  Under retro-cade scenarios, I personally find this unlikely.  Even so, I have implemented a global brightness limiter - by default set to 80%.  Also powering this strip from the 5v output, I find the LEDs to run very warm - however I have been assured by AI that "very warm" is the normal operating temperature for these LEDs.  Monitor and test your installation with the LEDs outside the case.  Check for temp.  Only when you are satisfied install them in a case.  
 
 ## Installation
 
@@ -62,6 +65,7 @@ Reboot to test boot behavior:Bashsudo reboot
 Configuration
 All persistent settings live in /home/pi/ledcontrol.toml. Example:
 [general]
+global_brightness = 0.8    # 80% max brightness limit (0.0 to 1.0)
 default_animate = "kitt"      # "kitt", "glow", "cycle", "rainbow", "meteor", "twinkle", "off", or "" for solid only
 default_color = "red"
 
