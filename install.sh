@@ -114,23 +114,30 @@ _make_launcher() {
     local file="$ROMS_DIR/$1"
     local animate="$2"
     local color="$3"
+    local LOG="/tmp/ledcontrol-es.log"
 
     if [ -n "$color" ]; then
         cat > "$file" << EOF
 #!/usr/bin/env bash
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '"$animate"'
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_color '"$color"'
-sudo systemctl stop ledcontrol.service 2>/dev/null
+LOG="$LOG"
+echo "\$(date '+%Y-%m-%d %H:%M:%S') - Launcher: $1 (animate=$animate color=$color)" >> "\$LOG"
+"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '"$animate"' >> "\$LOG" 2>&1
+"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_color '"$color"' >> "\$LOG" 2>&1
+sudo systemctl stop ledcontrol.service >> "\$LOG" 2>&1
 sleep 0.5
-sudo systemctl start ledcontrol.service
+sudo systemctl start ledcontrol.service >> "\$LOG" 2>&1
+echo "\$(date '+%Y-%m-%d %H:%M:%S') - Done" >> "\$LOG"
 EOF
     else
         cat > "$file" << EOF
 #!/usr/bin/env bash
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '"$animate"'
-sudo systemctl stop ledcontrol.service 2>/dev/null
+LOG="$LOG"
+echo "\$(date '+%Y-%m-%d %H:%M:%S') - Launcher: $1 (animate=$animate)" >> "\$LOG"
+"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '"$animate"' >> "\$LOG" 2>&1
+sudo systemctl stop ledcontrol.service >> "\$LOG" 2>&1
 sleep 0.5
-sudo systemctl start ledcontrol.service
+sudo systemctl start ledcontrol.service >> "\$LOG" 2>&1
+echo "\$(date '+%Y-%m-%d %H:%M:%S') - Done" >> "\$LOG"
 EOF
     fi
     chmod +x "$file"
@@ -139,13 +146,17 @@ EOF
 _make_solid() {
     local file="$ROMS_DIR/$1"
     local color="$2"
+    local LOG="/tmp/ledcontrol-es.log"
     cat > "$file" << EOF
 #!/usr/bin/env bash
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '""'
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_color '"$color"'
-sudo systemctl stop ledcontrol.service 2>/dev/null
+LOG="$LOG"
+echo "\$(date '+%Y-%m-%d %H:%M:%S') - Launcher: $1 (solid color=$color)" >> "\$LOG"
+"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '""' >> "\$LOG" 2>&1
+"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_color '"$color"' >> "\$LOG" 2>&1
+sudo systemctl stop ledcontrol.service >> "\$LOG" 2>&1
 sleep 0.5
-sudo systemctl start ledcontrol.service
+sudo systemctl start ledcontrol.service >> "\$LOG" 2>&1
+echo "\$(date '+%Y-%m-%d %H:%M:%S') - Done" >> "\$LOG"
 EOF
     chmod +x "$file"
 }
@@ -172,8 +183,11 @@ _make_solid solid-green.sh  green
 # Off
 cat > "$ROMS_DIR/off.sh" << EOF
 #!/usr/bin/env bash
-"$PYTHON" "$PROJECT_DIR/LEDControl.py" --animate off
-sudo systemctl stop ledcontrol.service 2>/dev/null
+LOG="/tmp/ledcontrol-es.log"
+echo "\$(date '+%Y-%m-%d %H:%M:%S') - Launcher: off.sh" >> "\$LOG"
+"$PYTHON" "$PROJECT_DIR/LEDControl.py" --animate off >> "\$LOG" 2>&1
+sudo systemctl stop ledcontrol.service >> "\$LOG" 2>&1
+echo "\$(date '+%Y-%m-%d %H:%M:%S') - Done" >> "\$LOG"
 EOF
 chmod +x "$ROMS_DIR/off.sh"
 
