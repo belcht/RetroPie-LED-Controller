@@ -2,15 +2,20 @@
 
 Control WS2812/NeoPixel LED strips on a Raspberry Pi 5 via SPI — designed for arcade marquee panels and RetroPie cabinets.
 
+![LED Control](es/images/led-control.png)
+
+---
+
 ## Features
 
-- **Animations:** KITT scanner, Glow pulse, Color cycle, Rainbow wave, Meteor shower, Twinkle sparkles
-- **Colors:** Red, green, blue, white, yellow, purple, cyan, orange, pink — or any hex color (`#FF8800`)
-- **Solid color mode** and **off mode**
+- **Animations:** KITT scanner, Glow pulse, Meteor shower, Twinkle sparkles, Color cycle, Rainbow wave, Solid color, Off
+- **Colors:** Red, orange, yellow, green, cyan, blue, purple, pink, white — or any hex value (`#FF8800`)
+- **Per-system animations** — different LEDs for MAME, NES, SNES, and more (configured in TOML)
+- **Per-ROM overrides** — specific games can have their own animation and color
+- **EmulationStation Ports menu** — change animation and color from inside ES using a joystick-navigable dialog menu
+- **Persistent config** via `ledcontrol.toml` — no script editing needed
+- **Systemd service** — auto-starts on boot, cleans up LEDs on shutdown and reboot
 - **Global brightness limiter** (default 80%) for power management
-- **Persistent config** via `ledcontrol.toml` — no need to edit the script
-- **Systemd service** — auto-starts on boot, cleans up LEDs on shutdown/reboot
-- **RetroPie Setup menu** integration for in-emulator control
 - Runs in a Python virtual environment (no system pollution)
 
 ---
@@ -18,8 +23,8 @@ Control WS2812/NeoPixel LED strips on a Raspberry Pi 5 via SPI — designed for 
 ## Requirements
 
 - Raspberry Pi 5 (tested on Raspberry Pi OS Bookworm 64-bit)
-- WS2812 / NeoPixel LED strip (14 LEDs default — adjustable in config)
-- SPI enabled via `raspi-config`
+- WS2812 / NeoPixel LED strip
+- SPI enabled (the installer handles this)
 
 ---
 
@@ -33,13 +38,11 @@ Control WS2812/NeoPixel LED strips on a Raspberry Pi 5 via SPI — designed for 
 
 **Recommended:** 330–470Ω resistor in series on the data line. 1000µF capacitor across 5V/GND at the strip start.
 
-> **Powering direct from Pi:** Each WS2812 LED draws up to 60mA at full white. 14 LEDs = up to 840mA. This is within the Pi 5's headroom under normal load, but use caution — monitor temperatures before installing in a case. The 80% brightness default reduces peak draw to ~670mA.
+> Each WS2812 LED draws up to 60mA at full white. Power from an external 5V supply for strips longer than a few LEDs. The 80% brightness default helps manage peak draw.
 
 ---
 
 ## Installation
-
-Clone the repo and run the installer:
 
 ```bash
 cd /home/pi
@@ -48,42 +51,35 @@ cd RetroPie-LED-Controller
 bash install.sh
 ```
 
-The script will:
-1. Create `/home/pi/LEDControl/` and set up a Python virtual environment
-2. Install the `rpi5-ws2812` library
-3. Copy `LEDControl.py`, `update_config.py`, and the default config
-4. Enable SPI (non-interactively via `raspi-config`)
-5. Install and enable the systemd services
-6. Add the RetroPie Setup menu module
+The installer handles everything:
 
-After installation:
+1. Creates `/home/pi/LEDControl/` with a Python virtual environment
+2. Installs the `rpi5-ws2812` library
+3. Copies scripts and default config
+4. Enables SPI
+5. Installs and enables systemd services (auto-start + clean shutdown)
+6. Installs the RetroPie Setup menu module
+7. Installs RunCommand hooks for per-game LED reactions
+8. Adds **LED Control** to the EmulationStation Ports menu with cover art
+9. Adds the Ports system to `es_systems.cfg` if not already present
 
-```bash
-# Edit your defaults
-nano /home/pi/ledcontrol.toml
-
-# Restart to apply
-sudo systemctl restart ledcontrol.service
-
-# Test boot behavior
-sudo reboot
-```
+Restart EmulationStation after installation. LED Control will appear under Ports.
 
 ---
 
 ## Configuration
 
-All persistent settings live in `/home/pi/ledcontrol.toml`:
+All settings live in `/home/pi/ledcontrol.toml`:
 
 ```toml
 [hardware]
-num_leds = 14       # adjust to your strip length
+num_leds = 14       # number of LEDs in your strip
 spi_bus = 0
 spi_device = 0
 
 [general]
-global_brightness = 0.8    # 80% max brightness (0.0–1.0)
-default_animate = "kitt"   # kitt | glow | cycle | rainbow | meteor | twinkle | "" (solid)
+global_brightness = 0.8    # 0.0–1.0
+default_animate = "kitt"   # kitt | glow | meteor | twinkle | cycle | rainbow | "" (solid) | off
 default_color = "red"      # color name or hex e.g. "#FF8800"
 
 [glow]
@@ -99,7 +95,7 @@ base_speed = 0.04
 cycle_duration = 10.0
 fade_time = 1.5
 fade_enabled = true
-# colors = ["red", "blue", "green", "purple", "orange"]  # optional subset
+# colors = ["red", "blue", "green", "purple"]  # optional subset
 
 [rainbow]
 speed = 0.02
@@ -111,6 +107,20 @@ speed = 0.05
 [twinkle]
 num_sparkles = 5
 fade_speed = 0.04
+
+# Per-system animations — system name matches the RetroPie system folder name
+[systems]
+default   = { animate = "kitt",    color = "red" }
+arcade    = { animate = "kitt",    color = "red" }
+nes       = { animate = "glow",    color = "white" }
+snes      = { animate = "glow",    color = "purple" }
+megadrive = { animate = "meteor",  color = "blue" }
+n64       = { animate = "rainbow" }
+psx       = { animate = "glow",    color = "cyan" }
+
+# Per-ROM overrides (ROM name without extension)
+[roms]
+# "Street Fighter II" = { animate = "kitt", color = "red" }
 ```
 
 After editing, restart the service:
@@ -121,41 +131,59 @@ sudo systemctl restart ledcontrol.service
 
 ---
 
-## Usage
+## EmulationStation Ports Menu
 
-**RetroPie menu:** RetroPie Setup → Configuration/tools → WS2812 LED Control
+LED Control appears in the **Ports** section of EmulationStation. Launch it to get a menu with:
 
-**Command line:**
+- **Set Animation** — choose from all available animations
+- **Set Color** — choose from 9 colors
+- **LEDs Off** — stop the service immediately
+- **Exit** — return to EmulationStation
+
+Fully navigable with a joystick. Changes take effect immediately.
+
+---
+
+## Per-Game LED Reactions
+
+When a game launches, the LED service automatically switches to the animation and color configured for that system (or ROM) in `ledcontrol.toml`. When the game exits, the default animation resumes.
+
+Add entries under `[systems]` using the RetroPie system folder name, or under `[roms]` for specific game titles.
+
+---
+
+## Command Line
 
 ```bash
+PYTHON=/home/pi/LEDControl/venv/bin/python3
+LED=/home/pi/LEDControl/LEDControl.py
+
 # Run an animation
-/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --animate kitt --color red
+$PYTHON $LED --animate kitt --color red
 
 # Solid color
-/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --color white
+$PYTHON $LED --color white
 
 # Hex color
-/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --color '#FF8800' --animate glow
+$PYTHON $LED --color '#FF8800' --animate glow
 
-# Turn off immediately
-/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --animate off
+# Turn off
+$PYTHON $LED --animate off
 ```
 
 ---
 
-## Development (Mac → Pi workflow)
-
-Edit files on your Mac in VSCode, then push to the Pi with:
+## Mac → Pi Development Workflow
 
 ```bash
-# First time: set up SSH key auth (so no password prompt)
+# First time: set up SSH key auth
 ssh-copy-id pi@retropie.local
 
-# Deploy and restart service
+# Deploy changes and restart service
 ./deploy.sh retropie.local
 ```
 
-`deploy.sh` rsyncs the Python files and config, then restarts the service automatically.
+`deploy.sh` rsyncs all scripts, config, and cover art to the Pi, then restarts the LED service.
 
 ---
 
@@ -163,15 +191,15 @@ ssh-copy-id pi@retropie.local
 
 | Symptom | Check |
 |---|---|
-| LEDs stay on after reboot | `journalctl -u leds-off.service` — did the shutdown hook run? |
-| No lights at all | SPI enabled? `lsmod \| grep spi`. Check wiring and 5V supply. |
-| `Module not found` error | Re-run `pip install rpi5-ws2812` inside the venv |
-| Service fails to start | `sudo systemctl status ledcontrol.service` and `journalctl -u ledcontrol.service -e` |
+| LEDs stay on after reboot | `journalctl -u leds-off.service` |
+| No LEDs at all | SPI enabled? `lsmod \| grep spi`. Check wiring and 5V supply. |
+| `Module not found` error | `pip install rpi5-ws2812` inside the venv |
+| Service won't start | `sudo systemctl status ledcontrol.service` and `journalctl -u ledcontrol.service -e` |
+| ES Ports menu not appearing | Check `grep ports /etc/emulationstation/es_systems.cfg` — re-run `bash install.sh` if missing |
+| Joystick double-steps in menu | A system joy2key may still be running — reboot and try again |
 
 ---
 
 ## License
 
 MIT — fork, modify, share freely.
-
-Built with help from Grok (xAI) and Claude (Anthropic).
