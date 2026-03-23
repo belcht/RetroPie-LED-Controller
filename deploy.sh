@@ -39,9 +39,11 @@ rsync -av ledcontrol.toml "${REMOTE}:/home/pi/"
 rsync -av ledcontrol.sh \
     "${REMOTE}:~/RetroPie-Setup/scriptmodules/supplementary/"
 
-# ── ES gamelist ───────────────────────────────────────────────────────────────
-ssh "${REMOTE}" "mkdir -p ${ES_GAMELISTS}"
+# ── ES scripts + gamelist ─────────────────────────────────────────────────────
+ssh "${REMOTE}" "mkdir -p ${ES_GAMELISTS} ${ROMS}"
 rsync -av es/gamelist.xml "${REMOTE}:${ES_GAMELISTS}/"
+rsync -av es/set-animation.sh es/set-color.sh es/off.sh "${REMOTE}:${ROMS}/"
+ssh "${REMOTE}" "chmod +x ${ROMS}/set-animation.sh ${ROMS}/set-color.sh ${ROMS}/off.sh"
 
 # ── Restart service ───────────────────────────────────────────────────────────
 echo "==> Restarting ledcontrol.service..."

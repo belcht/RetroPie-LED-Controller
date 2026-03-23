@@ -107,89 +107,17 @@ _install_hook "$RUNCOMMAND_DIR/runcommand-onend.sh" \
 echo ""
 echo "7. Setting up EmulationStation LED Control system..."
 
-# Create ROMs directory and launcher scripts
+# Create ROMs directory and copy launcher scripts from repo
 mkdir -p "$ROMS_DIR"
+cp "$REPO_DIR/es/set-animation.sh" "$ROMS_DIR/"
+cp "$REPO_DIR/es/set-color.sh"     "$ROMS_DIR/"
+cp "$REPO_DIR/es/off.sh"           "$ROMS_DIR/"
+chmod +x "$ROMS_DIR/set-animation.sh" "$ROMS_DIR/set-color.sh" "$ROMS_DIR/off.sh"
 
-_make_launcher() {
-    local file="$ROMS_DIR/$1"
-    local animate="$2"
-    local color="$3"
-    local LOG="/tmp/ledcontrol-es.log"
-
-    if [ -n "$color" ]; then
-        cat > "$file" << EOF
-#!/usr/bin/env bash
-LOG="$LOG"
-echo "\$(date '+%Y-%m-%d %H:%M:%S') - Launcher: $1 (animate=$animate color=$color)" >> "\$LOG"
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '"$animate"' >> "\$LOG" 2>&1
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_color '"$color"' >> "\$LOG" 2>&1
-sudo systemctl stop ledcontrol.service >> "\$LOG" 2>&1
-sleep 0.5
-sudo systemctl start ledcontrol.service >> "\$LOG" 2>&1
-echo "\$(date '+%Y-%m-%d %H:%M:%S') - Done" >> "\$LOG"
-EOF
-    else
-        cat > "$file" << EOF
-#!/usr/bin/env bash
-LOG="$LOG"
-echo "\$(date '+%Y-%m-%d %H:%M:%S') - Launcher: $1 (animate=$animate)" >> "\$LOG"
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '"$animate"' >> "\$LOG" 2>&1
-sudo systemctl stop ledcontrol.service >> "\$LOG" 2>&1
-sleep 0.5
-sudo systemctl start ledcontrol.service >> "\$LOG" 2>&1
-echo "\$(date '+%Y-%m-%d %H:%M:%S') - Done" >> "\$LOG"
-EOF
-    fi
-    chmod +x "$file"
-}
-
-_make_solid() {
-    local file="$ROMS_DIR/$1"
-    local color="$2"
-    local LOG="/tmp/ledcontrol-es.log"
-    cat > "$file" << EOF
-#!/usr/bin/env bash
-LOG="$LOG"
-echo "\$(date '+%Y-%m-%d %H:%M:%S') - Launcher: $1 (solid color=$color)" >> "\$LOG"
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_animate '""' >> "\$LOG" 2>&1
-"$PYTHON" "$PROJECT_DIR/update_config.py" /home/pi/ledcontrol.toml general default_color '"$color"' >> "\$LOG" 2>&1
-sudo systemctl stop ledcontrol.service >> "\$LOG" 2>&1
-sleep 0.5
-sudo systemctl start ledcontrol.service >> "\$LOG" 2>&1
-echo "\$(date '+%Y-%m-%d %H:%M:%S') - Done" >> "\$LOG"
-EOF
-    chmod +x "$file"
-}
-
-# Animations
-_make_launcher kitt-red.sh   kitt   red
-_make_launcher kitt-blue.sh  kitt   blue
-_make_launcher glow-white.sh glow   white
-_make_launcher glow-purple.sh glow  purple
-_make_launcher glow-orange.sh glow  orange
-_make_launcher meteor-red.sh  meteor red
-_make_launcher meteor-blue.sh meteor blue
-_make_launcher twinkle-white.sh twinkle white
-_make_launcher twinkle-pink.sh  twinkle pink
-_make_launcher rainbow.sh rainbow ""
-_make_launcher cycle.sh   cycle   ""
-
-# Solid colors
-_make_solid solid-white.sh  white
-_make_solid solid-red.sh    red
-_make_solid solid-blue.sh   blue
-_make_solid solid-green.sh  green
-
-# Off
-cat > "$ROMS_DIR/off.sh" << EOF
-#!/usr/bin/env bash
-LOG="/tmp/ledcontrol-es.log"
-echo "\$(date '+%Y-%m-%d %H:%M:%S') - Launcher: off.sh" >> "\$LOG"
-"$PYTHON" "$PROJECT_DIR/LEDControl.py" --animate off >> "\$LOG" 2>&1
-sudo systemctl stop ledcontrol.service >> "\$LOG" 2>&1
-echo "\$(date '+%Y-%m-%d %H:%M:%S') - Done" >> "\$LOG"
-EOF
-chmod +x "$ROMS_DIR/off.sh"
+# Remove old preset scripts if present from a previous install
+rm -f "$ROMS_DIR/kitt-"*.sh "$ROMS_DIR/glow-"*.sh "$ROMS_DIR/meteor-"*.sh \
+      "$ROMS_DIR/twinkle-"*.sh "$ROMS_DIR/rainbow.sh" "$ROMS_DIR/cycle.sh" \
+      "$ROMS_DIR/solid-"*.sh
 
 # Copy gamelist
 mkdir -p "$ES_GAMELISTS"
