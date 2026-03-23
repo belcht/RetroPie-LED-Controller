@@ -33,22 +33,22 @@ EVENT_SIZE   = struct.calcsize(EVENT_FORMAT)
 
 # Axis 0 = horizontal, Axis 1 = vertical
 AXIS_KEYS = {
-    (0, -1): '\x1b[D',  # left
-    (0,  1): '\x1b[C',  # right
-    (1, -1): '\x1b[A',  # up
-    (1,  1): '\x1b[B',  # down
+    (0, -1): b'\x1b[D',  # left
+    (0,  1): b'\x1b[C',  # right
+    (1, -1): b'\x1b[A',  # up
+    (1,  1): b'\x1b[B',  # down
 }
 
 # Button 0 = confirm, Button 1 = cancel
 BUTTON_KEYS = {
-    0: '\r',    # Enter
-    1: '\x1b',  # Escape
+    0: b'\r',    # Enter
+    1: b'\x1b',  # Escape
 }
 
 def inject(tty_fd, chars):
     dlog(f"INJECT {repr(chars)}")
-    for c in chars:
-        fcntl.ioctl(tty_fd, termios.TIOCSTI, c)
+    for i in range(len(chars)):
+        fcntl.ioctl(tty_fd, termios.TIOCSTI, chars[i:i+1])
 
 def run(js_path, tty_fd):
     axis_prev = {}   # last direction per axis — only fire on threshold crossing
