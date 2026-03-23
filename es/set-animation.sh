@@ -7,13 +7,15 @@ CONFIG="/home/pi/ledcontrol.toml"
 JOY2KEY="/home/pi/RetroPie/roms/ledcontrol/led-joy2key.py"
 
 _joy2key_start() {
+    pkill -f joy2key 2>/dev/null || true  # kill any system joy2key first
+    sleep 0.1
     for js in /dev/input/js*; do
         [[ -e "$js" ]] && python3 "$JOY2KEY" "$js"
     done
 }
 
 _joy2key_stop() {
-    pkill -f "led-joy2key.py" 2>/dev/null || true
+    pkill -f joy2key 2>/dev/null || true
 }
 
 _joy2key_start
