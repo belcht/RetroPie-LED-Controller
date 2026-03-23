@@ -38,7 +38,20 @@ Control WS2812/NeoPixel LED strips on a Raspberry Pi 5 via SPI — designed for 
 
 **Recommended:** 330–470Ω resistor in series on the data line. 1000µF capacitor across 5V/GND at the strip start.
 
-> Each WS2812 LED draws up to 60mA at full white. Power from an external 5V supply for strips longer than a few LEDs. The 80% brightness default helps manage peak draw.
+### Power Math
+
+Each WS2812 LED draws up to **60mA at full white**. At the default 80% brightness cap (`global_brightness = 0.8`), that drops to about **48mA per LED**.
+
+| LEDs | Peak current (80% brightness) | Notes |
+|------|-------------------------------|-------|
+| 10   | ~480mA | Fine on Pi 5V rail with a good supply |
+| 14   | ~672mA | Comfortable; default strip size in this project |
+| 20   | ~960mA | Safe limit when sharing the Pi's supply |
+| 30   | ~1440mA | Requires a dedicated external 5V supply |
+
+The script enforces a **default maximum of 20 LEDs** (`MAX_LEDS = 20` in `LEDControl.py`) to stay within safe limits when running from the Pi's 5V rail alongside the board's own load.
+
+**To increase the limit:** edit `LEDControl.py` and raise `MAX_LEDS`, then also update `num_leds` in `ledcontrol.toml`. Use a dedicated external 5V supply with a common ground to the Pi — do not draw more than ~1A from the Pi's rail.
 
 ---
 

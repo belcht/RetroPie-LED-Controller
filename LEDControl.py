@@ -14,9 +14,10 @@ SPI_DEVICE = 0
 global_brightness = 1.0
 
 # Maximum LEDs when powered from the Pi 5V rail.
-# Each WS2812 draws up to 60mA at full white; 30 LEDs = ~1.44A at 80% brightness.
-# Raise this value in code if you are using an external 5V supply with common ground.
-MAX_LEDS = 30
+# Each WS2812 draws up to 60mA at full white; at 80% brightness that is ~48mA per LED.
+# 20 LEDs x 48mA = ~960mA — safe headroom on any supply alongside a loaded Pi 5.
+# If you are using an external 5V supply with common ground, raise this value freely.
+MAX_LEDS = 20
 
 COLOR_MAP = {
     'red':    Color(255, 0, 0),
@@ -169,7 +170,7 @@ def run_kitt(strip, chase_color, config: dict):
 
 def run_cylon(strip, color, config: dict):
     c = config.get('cylon', {})
-    eye_width = c.get('eye_width', 5)
+    eye_width = c.get('eye_width', 3)
     speed     = c.get('speed', 0.04)
     min_stare = c.get('min_stare', 0.5)
     max_stare = c.get('max_stare', 3.0)
@@ -177,8 +178,21 @@ def run_cylon(strip, color, config: dict):
     off  = Color(0, 0, 0)
     print(f"Cylon | eye_width:{eye_width} speed:{speed} stare:{min_stare}-{max_stare}s")
 
+    # End markers: always-on at 30% brightness to frame the strip
+    end_color = limited_color(Color(
+        int(color.r * 0.3),
+        int(color.g * 0.3),
+        int(color.b * 0.3),
+    ))
+
+    # Eye travels between the two end markers
+    left_bound  = 1
+    right_bound = NUM_LEDS - 2
+
     def draw_eye(pos):
         strip.set_all_pixels(off)
+        set_pixel(strip, 0,           end_color)
+        set_pixel(strip, NUM_LEDS - 1, end_color)
         for i in range(NUM_LEDS):
             dist = abs(i - pos)
             if dist <= half:
@@ -190,15 +204,23 @@ def run_cylon(strip, color, config: dict):
                 )))
         strip.show()
 
-    pos = half
     try:
         while True:
-            target = random.randint(half, NUM_LEDS - 1 - half)
-            while pos != target:
-                pos += 1 if target > pos else -1
+            # Roam left to right — "looking around"
+            for pos in range(left_bound, right_bound + 1):
                 draw_eye(pos)
                 time.sleep(speed)
-            time.sleep(random.uniform(min_stare, max_stare))
+
+            # Pick a random spot to stare at on the return sweep
+            stare_pos = random.randint(left_bound, right_bound)
+
+            # Return right to left, pausing at stare_pos
+            for pos in range(right_bound, left_bound - 1, -1):
+                draw_eye(pos)
+                time.sleep(speed)
+                if pos == stare_pos:
+                    time.sleep(random.uniform(min_stare, max_stare))
+
     except (KeyboardInterrupt, SystemExit):
         print("\nCylon stopped")
     finally:

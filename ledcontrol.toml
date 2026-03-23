@@ -26,7 +26,7 @@ tail_length = 6
 base_speed = 0.04
 
 [cylon]
-eye_width = 5       # number of LEDs in the eye (odd number looks best)
+eye_width = 3       # number of LEDs in the eye (odd number looks best)
 speed = 0.04        # seconds per step
 min_stare = 0.5     # minimum seconds to hold position
 max_stare = 3.0     # maximum seconds to hold position
