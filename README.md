@@ -1,78 +1,95 @@
-# RetroPie-LED-Controller
-Manually Control LED Lights Connected via GPIO for RetroPie Arcades
-# Raspberry Pi 5 WS2812 LED Controller for RetroPie & More
+# RetroPie LED Controller
 
-This project controls WS2812/NeoPixel LED strips on a Raspberry Pi 5 using SPI (via the `rpi5-ws2812` library). It includes:
-- Multiple animations (KITT scanner, glow pulse, color cycle, rainbow wave, meteor shower, twinkle sparkles)
-- Configurable defaults via TOML file
-- Systemd service for auto-start on boot
-- Clean LED shutdown on reboot/shutdown
-- RetroPie Setup menu integration for easy mode/color selection
-
-Perfect for adding visual flair to your RetroPie cabinet, arcade machine, or any Pi project!
+Control WS2812/NeoPixel LED strips on a Raspberry Pi 5 via SPI — designed for arcade marquee panels and RetroPie cabinets.
 
 ## Features
-- Animations: KITT, Glow, Cycle, Rainbow, Meteor, Twinkle
-- Solid color mode
-- Persistent config in `ledcontrol.toml`
-- Graceful LED shutdown on reboot
-- RetroPie menu control (colors + animations)
-- Runs in a virtual environment (no system pollution)
+
+- **Animations:** KITT scanner, Glow pulse, Color cycle, Rainbow wave, Meteor shower, Twinkle sparkles
+- **Colors:** Red, green, blue, white, yellow, purple, cyan, orange, pink — or any hex color (`#FF8800`)
+- **Solid color mode** and **off mode**
+- **Global brightness limiter** (default 80%) for power management
+- **Persistent config** via `ledcontrol.toml` — no need to edit the script
+- **Systemd service** — auto-starts on boot, cleans up LEDs on shutdown/reboot
+- **RetroPie Setup menu** integration for in-emulator control
+- Runs in a Python virtual environment (no system pollution)
+
+---
 
 ## Requirements
-- Raspberry Pi 5 (tested on Bookworm)
-- Raspberry Pi OS (64-bit recommended)
-- WS2812 LED strip (14 LEDs in this example — adjustable in script)
-- External 5V power supply (or use the 5v output pin for short LED runs of 14 or less) for the strip (common GND with Pi)
-- SPI enabled (`raspi-config` → Interface Options → SPI → Yes)
+
+- Raspberry Pi 5 (tested on Raspberry Pi OS Bookworm 64-bit)
+- WS2812 / NeoPixel LED strip (14 LEDs default — adjustable in config)
+- SPI enabled via `raspi-config`
+
+---
 
 ## Wiring
-- LED Data In → Pi GPIO 10 (MOSI, physical pin 19)
-- LED GND → Pi GND (any GND pin)
-- LED 5V → External 5V supply (do **not** power long strips from Pi 5V pins) (short runs may be powered from 5v output pin of 14 or less)
 
-Recommended: 330–470Ω resistor in series on data line + 1000µF capacitor across 5V/GND at strip start.
+| LED wire | Connect to |
+|---|---|
+| Data In | GPIO 10 (MOSI, physical pin 19) |
+| GND | Any Pi GND pin |
+| 5V | External 5V supply (shared GND with Pi) |
 
-## If Wiring direct to pi - use at own risk.
-I have been warned repeatedly that powering even a short LED strip directly from the Pi 5 is not a good idea.  Each LED can consume at max white brightness 60mA.  14 WS2812 LEDs at max bright white can consume .84 amps.  By calculations, a normal running pi should have this headroom.  Obviously, if you spike the CPU the power draw could create voltage drops.  Under retro-cade scenarios, I personally find this unlikely.  Even so, I have implemented a global brightness limiter - by default set to 80%.  Also powering this strip from the 5v output, I find the LEDs to run very warm - however I have been assured by AI that "very warm" is the normal operating temperature for these LEDs.  Monitor and test your installation with the LEDs outside the case.  Check for temp.  Only when you are satisfied install them in a case.  
+**Recommended:** 330–470Ω resistor in series on the data line. 1000µF capacitor across 5V/GND at the strip start.
+
+> **Powering direct from Pi:** Each WS2812 LED draws up to 60mA at full white. 14 LEDs = up to 840mA. This is within the Pi 5's headroom under normal load, but use caution — monitor temperatures before installing in a case. The 80% brightness default reduces peak draw to ~670mA.
+
+---
 
 ## Installation
 
-The easiest way is to clone this repo and run the automated setup script:
+Clone the repo and run the installer:
 
 ```bash
 cd /home/pi
-git clone https://github.com/yourusername/rpi5-ws2812-led-control.git
-cd rpi5-ws2812-led-control
-sudo bash install.sh
+git clone https://github.com/belcht/RetroPie-LED-Controller.git
+cd RetroPie-LED-Controller
+bash install.sh
+```
 
 The script will:
-
-Create /home/pi/LEDControl/ project directory
-Set up a virtual environment
-Install rpi5-ws2812
-Copy the main script and default config
-Enable SPI (non-interactively)
-Install and enable systemd services
-Add the RetroPie menu module
+1. Create `/home/pi/LEDControl/` and set up a Python virtual environment
+2. Install the `rpi5-ws2812` library
+3. Copy `LEDControl.py`, `update_config.py`, and the default config
+4. Enable SPI (non-interactively via `raspi-config`)
+5. Install and enable the systemd services
+6. Add the RetroPie Setup menu module
 
 After installation:
 
-Edit /home/pi/ledcontrol.toml to set your default animation/color (see below)
-Restart service:Bashsudo systemctl restart ledcontrol.service
-Reboot to test boot behavior:Bashsudo reboot
+```bash
+# Edit your defaults
+nano /home/pi/ledcontrol.toml
 
-Configuration
-All persistent settings live in /home/pi/ledcontrol.toml. Example:
+# Restart to apply
+sudo systemctl restart ledcontrol.service
+
+# Test boot behavior
+sudo reboot
+```
+
+---
+
+## Configuration
+
+All persistent settings live in `/home/pi/ledcontrol.toml`:
+
+```toml
+[hardware]
+num_leds = 14       # adjust to your strip length
+spi_bus = 0
+spi_device = 0
+
 [general]
-global_brightness = 0.8    # 80% max brightness limit (0.0 to 1.0)
-default_animate = "kitt"      # "kitt", "glow", "cycle", "rainbow", "meteor", "twinkle", "off", or "" for solid only
-default_color = "red"
+global_brightness = 0.8    # 80% max brightness (0.0–1.0)
+default_animate = "kitt"   # kitt | glow | cycle | rainbow | meteor | twinkle | "" (solid)
+default_color = "red"      # color name or hex e.g. "#FF8800"
 
 [glow]
-min_brightness = 0.3
+min_brightness = 0.5
 max_brightness = 1.0
-duration = 2.5
+duration = 1.0
 
 [kitt]
 tail_length = 6
@@ -82,6 +99,7 @@ base_speed = 0.04
 cycle_duration = 10.0
 fade_time = 1.5
 fade_enabled = true
+# colors = ["red", "blue", "green", "purple", "orange"]  # optional subset
 
 [rainbow]
 speed = 0.02
@@ -93,27 +111,67 @@ speed = 0.05
 [twinkle]
 num_sparkles = 5
 fade_speed = 0.04
+```
 
 After editing, restart the service:
-Bashsudo systemctl restart ledcontrol.service
-Usage
 
-RetroPie Menu: Go to RetroPie Setup → Configuration/tools → WS2812 LED Control
-Choose a color (sets solid mode) or animation (uses current color)
-Manual control:Bash# Quick change helper (create this script if you want)
-~/set_led.sh kitt red
-~/set_led.sh rainbow
-~/set_led.sh off
-Immediate off (one-shot):Bash/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --animate off
+```bash
+sudo systemctl restart ledcontrol.service
+```
 
-Troubleshooting
+---
 
-LEDs stay on after reboot → Check journalctl -u leds-off.service — ensure shutdown hook ran.
-No lights → Confirm SPI enabled (lsmod | grep spi), wiring, external 5V power.
-Module not found → Re-run pip install rpi5-ws2812 inside venv.
-Service fails → sudo systemctl status ledcontrol.service and journalctl -u ledcontrol.service -e
+## Usage
 
-Credits / License
-Built with help from Grok (xAI).
-MIT License — feel free to fork, modify, share.
-Enjoy your glowing RetroPie setup!
+**RetroPie menu:** RetroPie Setup → Configuration/tools → WS2812 LED Control
+
+**Command line:**
+
+```bash
+# Run an animation
+/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --animate kitt --color red
+
+# Solid color
+/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --color white
+
+# Hex color
+/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --color '#FF8800' --animate glow
+
+# Turn off immediately
+/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py --animate off
+```
+
+---
+
+## Development (Mac → Pi workflow)
+
+Edit files on your Mac in VSCode, then push to the Pi with:
+
+```bash
+# First time: set up SSH key auth (so no password prompt)
+ssh-copy-id pi@retropie.local
+
+# Deploy and restart service
+./deploy.sh retropie.local
+```
+
+`deploy.sh` rsyncs the Python files and config, then restarts the service automatically.
+
+---
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| LEDs stay on after reboot | `journalctl -u leds-off.service` — did the shutdown hook run? |
+| No lights at all | SPI enabled? `lsmod \| grep spi`. Check wiring and 5V supply. |
+| `Module not found` error | Re-run `pip install rpi5-ws2812` inside the venv |
+| Service fails to start | `sudo systemctl status ledcontrol.service` and `journalctl -u ledcontrol.service -e` |
+
+---
+
+## License
+
+MIT — fork, modify, share freely.
+
+Built with help from Grok (xAI) and Claude (Anthropic).

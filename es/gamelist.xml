@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<gameList>
+
+  <!-- ── Animations ─────────────────────────────────────────── -->
+  <game>
+    <path>./kitt-red.sh</path>
+    <name>KITT - Red Scanner</name>
+    <desc>Classic red scanning animation (KITT from Knight Rider)</desc>
+    <sortname>01-kitt-red</sortname>
+  </game>
+  <game>
+    <path>./kitt-blue.sh</path>
+    <name>KITT - Blue Scanner</name>
+    <desc>Blue scanning animation</desc>
+    <sortname>02-kitt-blue</sortname>
+  </game>
+  <game>
+    <path>./glow-white.sh</path>
+    <name>Glow - White</name>
+    <desc>Soft white breathing pulse</desc>
+    <sortname>03-glow-white</sortname>
+  </game>
+  <game>
+    <path>./glow-purple.sh</path>
+    <name>Glow - Purple</name>
+    <desc>Purple breathing pulse</desc>
+    <sortname>04-glow-purple</sortname>
+  </game>
+  <game>
+    <path>./glow-orange.sh</path>
+    <name>Glow - Orange</name>
+    <desc>Warm orange breathing pulse</desc>
+    <sortname>05-glow-orange</sortname>
+  </game>
+  <game>
+    <path>./meteor-red.sh</path>
+    <name>Meteor - Red</name>
+    <desc>Red shooting star effect</desc>
+    <sortname>06-meteor-red</sortname>
+  </game>
+  <game>
+    <path>./meteor-blue.sh</path>
+    <name>Meteor - Blue</name>
+    <desc>Blue shooting star effect</desc>
+    <sortname>07-meteor-blue</sortname>
+  </game>
+  <game>
+    <path>./twinkle-white.sh</path>
+    <name>Twinkle - White</name>
+    <desc>White sparkling twinkle effect</desc>
+    <sortname>08-twinkle-white</sortname>
+  </game>
+  <game>
+    <path>./twinkle-pink.sh</path>
+    <name>Twinkle - Pink</name>
+    <desc>Pink sparkling twinkle effect</desc>
+    <sortname>09-twinkle-pink</sortname>
+  </game>
+  <game>
+    <path>./rainbow.sh</path>
+    <name>Rainbow Wave</name>
+    <desc>Full rainbow color wave animation</desc>
+    <sortname>10-rainbow</sortname>
+  </game>
+  <game>
+    <path>./cycle.sh</path>
+    <name>Color Cycle</name>
+    <desc>Slowly cycles through all colors with crossfade</desc>
+    <sortname>11-cycle</sortname>
+  </game>
+
+  <!-- ── Solid Colors ───────────────────────────────────────── -->
+  <game>
+    <path>./solid-white.sh</path>
+    <name>Solid - White</name>
+    <desc>All LEDs solid white</desc>
+    <sortname>12-solid-white</sortname>
+  </game>
+  <game>
+    <path>./solid-red.sh</path>
+    <name>Solid - Red</name>
+    <desc>All LEDs solid red</desc>
+    <sortname>13-solid-red</sortname>
+  </game>
+  <game>
+    <path>./solid-blue.sh</path>
+    <name>Solid - Blue</name>
+    <desc>All LEDs solid blue</desc>
+    <sortname>14-solid-blue</sortname>
+  </game>
+  <game>
+    <path>./solid-green.sh</path>
+    <name>Solid - Green</name>
+    <desc>All LEDs solid green</desc>
+    <sortname>15-solid-green</sortname>
+  </game>
+
+  <!-- ── Control ────────────────────────────────────────────── -->
+  <game>
+    <path>./off.sh</path>
+    <name>LEDs Off</name>
+    <desc>Turn all LEDs off</desc>
+    <sortname>16-off</sortname>
+  </game>
+
+</gameList>

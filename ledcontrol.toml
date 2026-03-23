@@ -1,8 +1,12 @@
-# ledcontrol.toml - Configuration for LEDControl.py
-# Edit this file to change defaults without command-line flags
+# ledcontrol.toml — Configuration for LEDControl.py
+
+[hardware]
+num_leds = 14
+spi_bus = 0
+spi_device = 0
 
 [general]
-global_brightness = 0.8    # 80% max brightness limit (0.0 to 1.0)
+global_brightness = 0.8    # 80% max brightness (0.0–1.0)
 default_animate = "kitt"
 default_color = "red"
 
@@ -15,6 +19,7 @@ duration = 1.0
 cycle_duration = 10.0
 fade_time = 1.5
 fade_enabled = true
+# colors = ["red", "blue", "green", "purple", "orange"]  # optional: limit which colors cycle through
 
 [kitt]
 tail_length = 6
@@ -30,3 +35,34 @@ fade_speed = 0.04
 
 [rainbow]
 speed = 0.02
+
+# ──────────────────────────────────────────────────────────────────────────────
+# RunCommand integration — automatic LED reactions per system and per ROM
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# When a game launches, LEDControl looks up the system name here.
+# Omit 'color' to use the default_color from [general].
+# Valid animate values: kitt | glow | cycle | rainbow | meteor | twinkle | ""
+#
+[systems]
+default   = { animate = "kitt",    color = "red" }
+arcade    = { animate = "kitt",    color = "red" }
+mame-libretro = { animate = "kitt", color = "red" }
+nes       = { animate = "glow",    color = "white" }
+snes      = { animate = "glow",    color = "purple" }
+megadrive = { animate = "meteor",  color = "blue" }
+genesis   = { animate = "meteor",  color = "blue" }
+psx       = { animate = "glow",    color = "cyan" }
+n64       = { animate = "rainbow" }
+gb        = { animate = "glow",    color = "green" }
+gba       = { animate = "glow",    color = "cyan" }
+pc        = { animate = "twinkle", color = "white" }
+
+# Per-ROM overrides — match on ROM filename without extension (case-insensitive).
+# These take priority over system settings.
+# Uncomment and add your own:
+#
+[roms]
+# "Street Fighter II - The World Warrior" = { animate = "kitt", color = "red" }
+# "Sonic the Hedgehog"                    = { animate = "meteor", color = "blue" }
+# "Super Mario World"                     = { animate = "twinkle", color = "white" }
