@@ -144,6 +144,29 @@ else:
     print('   Created ports gamelist with LED Control entry')
 PYEOF
 
+# Add Ports system to es_systems.cfg if not already present
+if ! grep -q "<name>ports</name>" "$ES_SYSTEMS" 2>/dev/null; then
+    sudo python3 - <<'PYEOF'
+import re
+path = '/etc/emulationstation/es_systems.cfg'
+entry = """  <system>
+    <name>ports</name>
+    <fullname>Ports</fullname>
+    <path>/home/pi/RetroPie/roms/ports</path>
+    <extension>.sh .SH</extension>
+    <command>bash %ROM%</command>
+    <platform>pc</platform>
+    <theme>ports</theme>
+  </system>"""
+content = open(path).read()
+content = content.replace('</systemList>', entry + '\n</systemList>')
+open(path, 'w').write(content)
+print('   Added Ports system to ' + path)
+PYEOF
+else
+    echo "   Ports system already in $ES_SYSTEMS — skipping"
+fi
+
 # Remove old custom ledcontrol system from es_systems.cfg (migration cleanup)
 if grep -q "<name>ledcontrol</name>" "$ES_SYSTEMS" 2>/dev/null; then
     sudo python3 -c "
