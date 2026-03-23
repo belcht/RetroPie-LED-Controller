@@ -8,7 +8,7 @@ Control WS2812/NeoPixel LED strips on a Raspberry Pi 5 via SPI — designed for 
 
 ## Features
 
-- **Animations:** KITT scanner, Glow pulse, Meteor shower, Twinkle sparkles, Color cycle, Rainbow wave, Solid color, Off
+- **Animations:** KITT scanner, Cylon eye (roaming stare), Glow pulse, Meteor shower, Twinkle sparkles, Color cycle, Rainbow wave, Solid color, Off
 - **Colors:** Red, orange, yellow, green, cyan, blue, purple, pink, white — or any hex value (`#FF8800`)
 - **Per-system animations** — different LEDs for MAME, NES, SNES, and more (configured in TOML)
 - **Per-ROM overrides** — specific games can have their own animation and color
@@ -79,7 +79,7 @@ spi_device = 0
 
 [general]
 global_brightness = 0.8    # 0.0–1.0
-default_animate = "kitt"   # kitt | glow | meteor | twinkle | cycle | rainbow | "" (solid) | off
+default_animate = "kitt"   # kitt | cylon | glow | meteor | twinkle | cycle | rainbow | "" (solid) | off
 default_color = "red"      # color name or hex e.g. "#FF8800"
 
 [glow]
@@ -135,7 +135,7 @@ sudo systemctl restart ledcontrol.service
 
 LED Control appears in the **Ports** section of EmulationStation. Launch it to get a menu with:
 
-- **Set Animation** — choose from all available animations
+- **Set Animation** — choose from all available animations (KITT, Cylon, Glow, Meteor, Twinkle, Cycle, Rainbow, Solid, Off)
 - **Set Color** — choose from 9 colors
 - **LEDs Off** — stop the service immediately
 - **Exit** — return to EmulationStation

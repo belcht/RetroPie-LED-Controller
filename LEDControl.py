@@ -13,6 +13,11 @@ SPI_BUS = 0
 SPI_DEVICE = 0
 global_brightness = 1.0
 
+# Maximum LEDs when powered from the Pi 5V rail.
+# Each WS2812 draws up to 60mA at full white; 30 LEDs = ~1.44A at 80% brightness.
+# Raise this value in code if you are using an external 5V supply with common ground.
+MAX_LEDS = 30
+
 COLOR_MAP = {
     'red':    Color(255, 0, 0),
     'green':  Color(0, 255, 0),
@@ -161,6 +166,45 @@ def run_kitt(strip, chase_color, config: dict):
     finally:
         strip.set_all_pixels(off)
         strip.show()
+
+def run_cylon(strip, color, config: dict):
+    c = config.get('cylon', {})
+    eye_width = c.get('eye_width', 5)
+    speed     = c.get('speed', 0.04)
+    min_stare = c.get('min_stare', 0.5)
+    max_stare = c.get('max_stare', 3.0)
+    half = eye_width // 2
+    off  = Color(0, 0, 0)
+    print(f"Cylon | eye_width:{eye_width} speed:{speed} stare:{min_stare}-{max_stare}s")
+
+    def draw_eye(pos):
+        strip.set_all_pixels(off)
+        for i in range(NUM_LEDS):
+            dist = abs(i - pos)
+            if dist <= half:
+                intensity = 1.0 - (dist / (half + 1))
+                set_pixel(strip, i, limited_color(Color(
+                    int(color.r * intensity),
+                    int(color.g * intensity),
+                    int(color.b * intensity),
+                )))
+        strip.show()
+
+    pos = half
+    try:
+        while True:
+            target = random.randint(half, NUM_LEDS - 1 - half)
+            while pos != target:
+                pos += 1 if target > pos else -1
+                draw_eye(pos)
+                time.sleep(speed)
+            time.sleep(random.uniform(min_stare, max_stare))
+    except (KeyboardInterrupt, SystemExit):
+        print("\nCylon stopped")
+    finally:
+        strip.set_all_pixels(off)
+        strip.show()
+
 
 def run_glow(strip, base_color, config: dict):
     c = config.get('glow', {})
@@ -317,7 +361,7 @@ def main():
     parser.add_argument('--color', '-color', default=None,
                         help='Color name (red, green, blue, white, yellow, purple, cyan, orange, pink) or hex (#FF8800)')
     parser.add_argument('--animate', '-animate',
-                        choices=['kitt', 'glow', 'cycle', 'rainbow', 'meteor', 'twinkle', 'off'],
+                        choices=['kitt', 'cylon', 'glow', 'cycle', 'rainbow', 'meteor', 'twinkle', 'off'],
                         default=None)
     parser.add_argument('--global-brightness', type=float, default=None,
                         help='Global brightness limit (0.0–1.0)')
@@ -340,6 +384,10 @@ def main():
     NUM_LEDS = hw.get('num_leds', 14)
     SPI_BUS = hw.get('spi_bus', 0)
     SPI_DEVICE = hw.get('spi_device', 0)
+    if NUM_LEDS > MAX_LEDS:
+        print(f"Warning: num_leds={NUM_LEDS} exceeds MAX_LEDS={MAX_LEDS} (Pi 5V rail safety limit). "
+              f"Clamping to {MAX_LEDS}. Use an external 5V supply to go higher.", file=sys.stderr)
+        NUM_LEDS = MAX_LEDS
 
     # Brightness: CLI > config > 1.0
     global_brightness = (
@@ -400,6 +448,8 @@ def main():
     try:
         if animate == 'kitt':
             run_kitt(strip, color, config)
+        elif animate == 'cylon':
+            run_cylon(strip, color, config)
         elif animate == 'glow':
             run_glow(strip, color, config)
         elif animate == 'cycle':

@@ -33,33 +33,35 @@ _apply() {
 
 _set_animation() {
     local choice anim
-    choice=$(dialog --menu "Set Animation" 20 55 10 \
+    choice=$(dialog --menu "Set Animation" 22 55 10 \
         1 "KITT (scanner)" \
-        2 "Glow (pulse)" \
-        3 "Meteor Shower" \
-        4 "Twinkle Sparkles" \
-        5 "Cycle  [generates own colors]" \
-        6 "Rainbow Wave  [generates own colors]" \
-        7 "Solid Color" \
-        8 "Off" \
+        2 "Cylon Eye (roaming stare)" \
+        3 "Glow (pulse)" \
+        4 "Meteor Shower" \
+        5 "Twinkle Sparkles" \
+        6 "Cycle  [generates own colors]" \
+        7 "Rainbow Wave  [generates own colors]" \
+        8 "Solid Color" \
+        9 "Off" \
         2>&1 >/dev/tty)
     clear
     [[ -z "$choice" ]] && return
 
     case "$choice" in
         1) anim="kitt"    ;;
-        2) anim="glow"    ;;
-        3) anim="meteor"  ;;
-        4) anim="twinkle" ;;
-        5) anim="cycle"   ;;
-        6) anim="rainbow" ;;
-        7) anim=""        ;;
-        8) anim="off"     ;;
+        2) anim="cylon"   ;;
+        3) anim="glow"    ;;
+        4) anim="meteor"  ;;
+        5) anim="twinkle" ;;
+        6) anim="cycle"   ;;
+        7) anim="rainbow" ;;
+        8) anim=""        ;;
+        9) anim="off"     ;;
         *) return ;;
     esac
 
     if [[ "$anim" == "cycle" || "$anim" == "rainbow" ]]; then
-        dialog --msgbox "$anim generates its own colors — your color selection is ignored for this animation." \
+        dialog --msgbox "$anim generates its own colors — color selection is ignored for this animation." \
             6 55 2>&1 >/dev/tty
         clear
     fi
