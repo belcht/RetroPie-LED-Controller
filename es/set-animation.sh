@@ -3,6 +3,25 @@ LOG="/tmp/ledcontrol-es.log"
 PYTHON="/home/pi/LEDControl/venv/bin/python3"
 UPDATE_CFG="/home/pi/LEDControl/update_config.py"
 CONFIG="/home/pi/ledcontrol.toml"
+JOY2KEY="/opt/retropie/supplementary/runcommand/joy2key.py"
+JOY2KEY_PIDS=()
+
+_joy2key_start() {
+    [[ ! -f "$JOY2KEY" ]] && return
+    for js in /dev/input/js*; do
+        [[ -e "$js" ]] || continue
+        python3 "$JOY2KEY" "$js" kcub1 kcuf1 kcuu1 kcud1 0x0a 0x1b &
+        JOY2KEY_PIDS+=($!)
+    done
+}
+
+_joy2key_stop() {
+    for pid in "${JOY2KEY_PIDS[@]}"; do
+        kill "$pid" 2>/dev/null
+    done
+}
+
+_joy2key_start
 
 choice=$(dialog --menu "Set Animation" 20 55 10 \
     1 "KITT (scanner)" \
@@ -14,6 +33,8 @@ choice=$(dialog --menu "Set Animation" 20 55 10 \
     7 "Solid Color" \
     8 "Off" \
     2>&1 >/dev/tty)
+
+_joy2key_stop
 
 [[ -z "$choice" ]] && exit 0
 
