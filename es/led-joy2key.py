@@ -12,6 +12,12 @@ Usage: python3 led-joy2key.py [/dev/input/js0]
 
 import os, sys, struct, fcntl, termios, time
 
+DEBUG_LOG = '/tmp/led-joy2key-debug.log'
+
+def dlog(msg):
+    with open(DEBUG_LOG, 'a') as f:
+        f.write(f"{time.time():.4f} {msg}\n")
+
 JS_EVENT_BUTTON = 0x01
 JS_EVENT_AXIS   = 0x02
 JS_EVENT_INIT   = 0x80
@@ -63,6 +69,9 @@ def run(js_path, tty_fd):
 
         js_time, js_value, js_type, js_number = struct.unpack(EVENT_FORMAT, data)
 
+        is_init = bool(js_type & JS_EVENT_INIT)
+        dlog(f"RAW type=0x{js_type:02x} num={js_number} val={js_value} init={is_init}")
+
         if js_type & JS_EVENT_INIT:
             continue
 
@@ -73,6 +82,7 @@ def run(js_path, tty_fd):
             if now - btn_last.get(js_number, 0) > JS_REP:
                 btn_last[js_number] = now
                 chars = BUTTON_KEYS.get(js_number)
+            dlog(f"BUTTON num={js_number} -> chars={repr(chars)}")
 
         elif js_type == JS_EVENT_AXIS:
             if js_value <= JS_MIN * JS_THRESH:
@@ -88,10 +98,14 @@ def run(js_path, tty_fd):
             # Only fire when crossing INTO the threshold, not while held,
             # and respect global cooldown to suppress duplicate axis reports
             now = time.time()
-            if direction != 0 and direction != prev and now - axis_last > JS_AXIS_REP:
+            gap = now - axis_last
+            will_fire = direction != 0 and direction != prev and gap > JS_AXIS_REP
+            dlog(f"AXIS num={js_number} val={js_value} dir={direction} prev={prev} gap={gap:.4f} will_fire={will_fire}")
+            if will_fire:
                 chars = AXIS_KEYS.get((js_number, direction))
                 if chars:
                     axis_last = now
+            dlog(f"AXIS -> chars={repr(chars)}")
 
         if chars:
             inject(tty_fd, chars)
