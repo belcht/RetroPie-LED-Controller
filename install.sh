@@ -128,8 +128,14 @@ entry = '''\
   <game>
     <path>./led-control.sh</path>
     <name>LED Control</name>
-    <desc>Configure arcade cabinet LED animations and colors.</desc>
+    <desc>Configure WS2812 LED animations and colors for your arcade cabinet marquee. Choose from KITT scanner, glow pulse, meteor shower, twinkle sparkles, color cycle, rainbow wave, solid color, or off. Changes take effect instantly.</desc>
     <image>./images/led-control.png</image>
+    <developer>belcht</developer>
+    <publisher>belcht</publisher>
+    <releasedate>20260101T000000</releasedate>
+    <genre>Utility</genre>
+    <players>1</players>
+    <rating>1.0</rating>
   </game>'''
 import re
 if os.path.exists(gamelist):
