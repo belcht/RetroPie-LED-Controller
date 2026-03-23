@@ -16,7 +16,7 @@ DEBUG_LOG = '/tmp/led-joy2key-debug.log'
 
 def dlog(msg):
     with open(DEBUG_LOG, 'a') as f:
-        f.write(f"{time.time():.4f} {msg}\n")
+        f.write(f"{time.time():.4f} pid={os.getpid()} {msg}\n")
 
 JS_EVENT_BUTTON = 0x01
 JS_EVENT_AXIS   = 0x02
@@ -46,6 +46,7 @@ BUTTON_KEYS = {
 }
 
 def inject(tty_fd, chars):
+    dlog(f"INJECT {repr(chars)}")
     for c in chars:
         fcntl.ioctl(tty_fd, termios.TIOCSTI, c)
 
