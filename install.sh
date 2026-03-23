@@ -131,12 +131,18 @@ entry = '''\
     <desc>Configure arcade cabinet LED animations and colors.</desc>
     <image>./images/led-control.png</image>
   </game>'''
+import re
 if os.path.exists(gamelist):
     content = open(gamelist).read()
     if 'led-control' not in content:
         content = content.replace('</gameList>', entry + '\n</gameList>')
         open(gamelist, 'w').write(content)
         print('   Added LED Control to ports gamelist')
+    elif '<image>' not in content:
+        # Entry exists but is missing the image tag — replace the whole entry
+        content = re.sub(r'<game>.*?led-control\.sh.*?</game>', entry, content, flags=re.DOTALL)
+        open(gamelist, 'w').write(content)
+        print('   Updated LED Control gamelist entry with image tag')
     else:
         print('   LED Control already in ports gamelist — skipping')
 else:
