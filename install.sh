@@ -113,6 +113,8 @@ cp "$REPO_DIR/es/set-animation.sh" "$ROMS_DIR/"
 cp "$REPO_DIR/es/set-color.sh"     "$ROMS_DIR/"
 cp "$REPO_DIR/es/off.sh"           "$ROMS_DIR/"
 chmod +x "$ROMS_DIR/set-animation.sh" "$ROMS_DIR/set-color.sh" "$ROMS_DIR/off.sh"
+# Ensure pi owns the roms directory (in case install ran as root)
+sudo chown -R pi:pi "$ROMS_DIR"
 
 # Remove old preset scripts if present from a previous install
 rm -f "$ROMS_DIR/kitt-"*.sh "$ROMS_DIR/glow-"*.sh "$ROMS_DIR/meteor-"*.sh \
