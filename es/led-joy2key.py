@@ -3,6 +3,7 @@
 led-joy2key.py — Minimal joystick-to-keyboard daemon for dialog menus.
 
 Maps joystick axes to arrow keys and buttons to Enter/Escape.
+Fires only on threshold crossing (not while held) to prevent double steps.
 Forks into background immediately so the caller can continue.
 Killed by name (pkill -f led-joy2key.py) when the dialog closes.
 
@@ -15,10 +16,10 @@ JS_EVENT_BUTTON = 0x01
 JS_EVENT_AXIS   = 0x02
 JS_EVENT_INIT   = 0x80
 
-JS_MIN   = -32768
-JS_MAX   =  32768
+JS_MIN    = -32768
+JS_MAX    =  32768
 JS_THRESH = 0.75
-JS_REP   = 0.15     # minimum seconds between repeated events
+JS_REP    = 0.15    # minimum seconds between button presses (debounce)
 
 EVENT_FORMAT = 'IhBB'
 EVENT_SIZE   = struct.calcsize(EVENT_FORMAT)
@@ -42,7 +43,9 @@ def inject(tty_fd, chars):
         fcntl.ioctl(tty_fd, termios.TIOCSTI, c)
 
 def run(js_path, tty_fd):
-    last_event = {}
+    axis_prev = {}  # last direction per axis — only fire on threshold crossing
+    btn_last  = {}  # timestamp of last button press for debounce
+
     try:
         fd = open(js_path, 'rb')
     except OSError:
@@ -61,11 +64,13 @@ def run(js_path, tty_fd):
         if js_type & JS_EVENT_INIT:
             continue
 
-        now  = time.time()
         chars = None
 
         if js_type == JS_EVENT_BUTTON and js_value == 1:
-            chars = BUTTON_KEYS.get(js_number)
+            now = time.time()
+            if now - btn_last.get(js_number, 0) > JS_REP:
+                btn_last[js_number] = now
+                chars = BUTTON_KEYS.get(js_number)
 
         elif js_type == JS_EVENT_AXIS:
             if js_value <= JS_MIN * JS_THRESH:
@@ -74,14 +79,16 @@ def run(js_path, tty_fd):
                 direction = 1
             else:
                 direction = 0
-            if direction:
+
+            prev = axis_prev.get(js_number, 0)
+            axis_prev[js_number] = direction
+
+            # Only fire when crossing INTO the threshold, not while held
+            if direction != 0 and direction != prev:
                 chars = AXIS_KEYS.get((js_number, direction))
 
         if chars:
-            key = (js_type, js_number)
-            if now - last_event.get(key, 0) > JS_REP:
-                last_event[key] = now
-                inject(tty_fd, chars)
+            inject(tty_fd, chars)
 
     fd.close()
 
@@ -91,7 +98,7 @@ def main():
     try:
         tty_fd = os.open('/dev/tty', os.O_WRONLY)
     except OSError:
-        print(f"led-joy2key: cannot open /dev/tty", file=sys.stderr)
+        print("led-joy2key: cannot open /dev/tty", file=sys.stderr)
         sys.exit(1)
 
     # Fork — parent exits immediately so the caller continues
