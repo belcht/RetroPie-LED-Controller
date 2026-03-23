@@ -122,33 +122,35 @@ cp "$REPO_DIR/es/images/led-control.png" "$IMAGES_DIR/"
 # Add LED Control entry to ports gamelist
 mkdir -p "$(dirname "$PORTS_GAMELIST")"
 python3 - <<'PYEOF'
-import os, sys
-gamelist = os.environ.get('PORTS_GAMELIST', '/home/pi/.emulationstation/gamelists/ports/gamelist.xml')
-entry = '''\
-  <game>
-    <path>./led-control.sh</path>
-    <name>LED Control</name>
-    <desc>Configure WS2812 LED animations and colors for your arcade cabinet marquee. Choose from KITT scanner, glow pulse, meteor shower, twinkle sparkles, color cycle, rainbow wave, solid color, or off. Changes take effect instantly.</desc>
-    <image>./images/led-control.png</image>
-    <developer>belcht</developer>
-    <publisher>belcht</publisher>
-    <releasedate>20260101T000000</releasedate>
-    <genre>Utility</genre>
-    <players>1</players>
-    <rating>1.0</rating>
-  </game>'''
-import re
+import os, re
+gamelist = '/home/pi/.emulationstation/gamelists/ports/gamelist.xml'
+image_abs = '/home/pi/.emulationstation/gamelists/ports/images/led-control.png'
+entry = (
+    '  <game>\n'
+    '    <path>./led-control.sh</path>\n'
+    '    <name>LED Control</name>\n'
+    '    <desc>Configure WS2812 LED animations and colors for your arcade cabinet marquee. '
+    'Choose from KITT scanner, glow pulse, meteor shower, twinkle sparkles, color cycle, '
+    'rainbow wave, solid color, or off. Changes take effect instantly.</desc>\n'
+    '    <image>' + image_abs + '</image>\n'
+    '    <developer>belcht</developer>\n'
+    '    <publisher>belcht</publisher>\n'
+    '    <releasedate>20260101T000000</releasedate>\n'
+    '    <genre>Utility</genre>\n'
+    '    <players>1</players>\n'
+    '    <rating>1.0</rating>\n'
+    '  </game>'
+)
 if os.path.exists(gamelist):
     content = open(gamelist).read()
     if 'led-control' not in content:
         content = content.replace('</gameList>', entry + '\n</gameList>')
         open(gamelist, 'w').write(content)
         print('   Added LED Control to ports gamelist')
-    elif '<image>' not in content:
-        # Entry exists but is missing the image tag — replace the whole entry
+    elif image_abs not in content:
         content = re.sub(r'<game>.*?led-control\.sh.*?</game>', entry, content, flags=re.DOTALL)
         open(gamelist, 'w').write(content)
-        print('   Updated LED Control gamelist entry with image tag')
+        print('   Updated LED Control gamelist entry')
     else:
         print('   LED Control already in ports gamelist — skipping')
 else:
