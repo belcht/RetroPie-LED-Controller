@@ -19,7 +19,8 @@ JS_EVENT_INIT   = 0x80
 JS_MIN    = -32768
 JS_MAX    =  32768
 JS_THRESH = 0.75
-JS_REP    = 0.15    # minimum seconds between button presses (debounce)
+JS_REP      = 0.15    # minimum seconds between button presses (debounce)
+JS_AXIS_REP = 0.20    # minimum seconds between any axis key injection (global cooldown)
 
 EVENT_FORMAT = 'IhBB'
 EVENT_SIZE   = struct.calcsize(EVENT_FORMAT)
@@ -43,8 +44,9 @@ def inject(tty_fd, chars):
         fcntl.ioctl(tty_fd, termios.TIOCSTI, c)
 
 def run(js_path, tty_fd):
-    axis_prev = {}  # last direction per axis — only fire on threshold crossing
-    btn_last  = {}  # timestamp of last button press for debounce
+    axis_prev = {}   # last direction per axis — only fire on threshold crossing
+    axis_last = 0.0  # timestamp of last axis key injected — global cooldown
+    btn_last  = {}   # timestamp of last button press for debounce
 
     try:
         fd = open(js_path, 'rb')
@@ -83,9 +85,13 @@ def run(js_path, tty_fd):
             prev = axis_prev.get(js_number, 0)
             axis_prev[js_number] = direction
 
-            # Only fire when crossing INTO the threshold, not while held
-            if direction != 0 and direction != prev:
+            # Only fire when crossing INTO the threshold, not while held,
+            # and respect global cooldown to suppress duplicate axis reports
+            now = time.time()
+            if direction != 0 and direction != prev and now - axis_last > JS_AXIS_REP:
                 chars = AXIS_KEYS.get((js_number, direction))
+                if chars:
+                    axis_last = now
 
         if chars:
             inject(tty_fd, chars)
