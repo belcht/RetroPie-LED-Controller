@@ -69,9 +69,9 @@ sudo systemctl start ledcontrol.service
 # ── 5. RetroPie Setup menu module ─────────────────────────────────────────────
 echo ""
 echo "5. Installing RetroPie Setup menu module..."
-mkdir -p ~/RetroPie-Setup/scriptmodules/supplementary/
-cp "$REPO_DIR/ledcontrol.sh" ~/RetroPie-Setup/scriptmodules/supplementary/
-chmod +x ~/RetroPie-Setup/scriptmodules/supplementary/ledcontrol.sh
+sudo mkdir -p ~/RetroPie-Setup/scriptmodules/supplementary/
+sudo cp "$REPO_DIR/ledcontrol.sh" ~/RetroPie-Setup/scriptmodules/supplementary/
+sudo chmod +x ~/RetroPie-Setup/scriptmodules/supplementary/ledcontrol.sh
 
 # ── 6. RunCommand hooks ───────────────────────────────────────────────────────
 echo ""
