@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
+clear
 LOG="/tmp/ledcontrol-es.log"
 PYTHON="/home/pi/LEDControl/venv/bin/python3"
 UPDATE_CFG="/home/pi/LEDControl/update_config.py"
 CONFIG="/home/pi/ledcontrol.toml"
-JOY2KEY="/opt/retropie/admin/joy2key/joy2key.py"
+JOY2KEY="/home/pi/RetroPie/roms/ledcontrol/led-joy2key.py"
 
 _joy2key_start() {
-    [[ ! -f "$JOY2KEY" ]] && return
     for js in /dev/input/js*; do
-        [[ -e "$js" ]] || continue
-        python3 "$JOY2KEY" "$js" kcub1 kcuf1 kcuu1 kcud1 0x0d 0x1b
+        [[ -e "$js" ]] && python3 "$JOY2KEY" "$js"
     done
 }
 
 _joy2key_stop() {
-    pkill -f "joy2key.py" 2>/dev/null || true
+    pkill -f "led-joy2key.py" 2>/dev/null || true
 }
 
 _joy2key_start
@@ -31,6 +30,7 @@ choice=$(dialog --menu "Set Animation" 20 55 10 \
     2>&1 >/dev/tty)
 
 _joy2key_stop
+clear
 
 [[ -z "$choice" ]] && exit 0
 
@@ -51,6 +51,7 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') - Set animation: ${anim:-solid}" >> "$LOG"
 if [[ "$anim" == "cycle" || "$anim" == "rainbow" ]]; then
     dialog --msgbox "$anim generates its own colors — your color selection is ignored for this animation." \
         6 55 2>&1 >/dev/tty
+    clear
 fi
 
 "$PYTHON" "$UPDATE_CFG" "$CONFIG" general default_animate "\"$anim\"" >> "$LOG" 2>&1

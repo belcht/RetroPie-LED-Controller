@@ -112,7 +112,8 @@ mkdir -p "$ROMS_DIR"
 cp "$REPO_DIR/es/set-animation.sh" "$ROMS_DIR/"
 cp "$REPO_DIR/es/set-color.sh"     "$ROMS_DIR/"
 cp "$REPO_DIR/es/off.sh"           "$ROMS_DIR/"
-chmod +x "$ROMS_DIR/set-animation.sh" "$ROMS_DIR/set-color.sh" "$ROMS_DIR/off.sh"
+cp "$REPO_DIR/es/led-joy2key.py"   "$ROMS_DIR/"
+chmod +x "$ROMS_DIR/set-animation.sh" "$ROMS_DIR/set-color.sh" "$ROMS_DIR/off.sh" "$ROMS_DIR/led-joy2key.py"
 # Ensure pi owns the roms directory (in case install ran as root)
 sudo chown -R pi:pi "$ROMS_DIR"
 
