@@ -114,6 +114,11 @@ cp "$REPO_DIR/es/led-control.sh" "$PORTS_DIR/"
 cp "$REPO_DIR/es/led-joy2key.py" "$PORTS_DIR/"
 chmod +x "$PORTS_DIR/led-control.sh" "$PORTS_DIR/led-joy2key.py"
 
+# Copy cover art
+IMAGES_DIR="$(dirname "$PORTS_GAMELIST")/images"
+mkdir -p "$IMAGES_DIR"
+cp "$REPO_DIR/es/images/led-control.png" "$IMAGES_DIR/"
+
 # Add LED Control entry to ports gamelist
 mkdir -p "$(dirname "$PORTS_GAMELIST")"
 python3 - <<'PYEOF'
@@ -124,6 +129,7 @@ entry = '''\
     <path>./led-control.sh</path>
     <name>LED Control</name>
     <desc>Configure arcade cabinet LED animations and colors.</desc>
+    <image>./images/led-control.png</image>
   </game>'''
 if os.path.exists(gamelist):
     content = open(gamelist).read()

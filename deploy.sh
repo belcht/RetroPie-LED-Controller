@@ -38,10 +38,12 @@ rsync -av ledcontrol.toml "${REMOTE}:/home/pi/"
 rsync -av ledcontrol.sh \
     "${REMOTE}:~/RetroPie-Setup/scriptmodules/supplementary/"
 
-# ── ES scripts → Ports ────────────────────────────────────────────────────────
+# ── ES scripts + cover art → Ports ───────────────────────────────────────────
 ssh "${REMOTE}" "mkdir -p ${PORTS}"
 rsync -av es/led-control.sh es/led-joy2key.py "${REMOTE}:${PORTS}/"
 ssh "${REMOTE}" "chmod +x ${PORTS}/led-control.sh ${PORTS}/led-joy2key.py"
+ssh "${REMOTE}" "mkdir -p ~/.emulationstation/gamelists/ports/images"
+rsync -av es/images/led-control.png "${REMOTE}:~/.emulationstation/gamelists/ports/images/"
 
 # ── Restart service ───────────────────────────────────────────────────────────
 echo "==> Restarting ledcontrol.service..."
