@@ -9,7 +9,7 @@ _joy2key_start() {
     [[ ! -f "$JOY2KEY" ]] && return
     for js in /dev/input/js*; do
         [[ -e "$js" ]] || continue
-        python3 "$JOY2KEY" "$js" kcub1 kcuf1 kcuu1 kcud1 0x0a 0x1b
+        python3 "$JOY2KEY" "$js" kcub1 kcuf1 kcuu1 kcud1 0x0d 0x1b
     done
 }
 
