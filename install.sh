@@ -10,8 +10,9 @@ REPO_DIR="$(pwd)"
 echo "Repo directory: $REPO_DIR"
 
 PROJECT_DIR="/home/pi/LEDControl"
-ROMS_DIR="/home/pi/RetroPie/roms/ledcontrol"
-ES_GAMELISTS="/home/pi/.emulationstation/gamelists/ledcontrol"
+OLD_ROMS_DIR="/home/pi/RetroPie/roms/ledcontrol"
+PORTS_DIR="/home/pi/RetroPie/roms/ports"
+PORTS_GAMELIST="/home/pi/.emulationstation/gamelists/ports/gamelist.xml"
 ES_SYSTEMS="/etc/emulationstation/es_systems.cfg"
 RUNCOMMAND_DIR="/opt/retropie/configs/all"
 PYTHON="$PROJECT_DIR/venv/bin/python3"
@@ -103,36 +104,55 @@ _install_hook "$RUNCOMMAND_DIR/runcommand-onstart.sh" \
 _install_hook "$RUNCOMMAND_DIR/runcommand-onend.sh" \
     "/home/pi/LEDControl/led-game-end.sh \"\$@\""
 
-# ── 7. EmulationStation system (LED Control in the carousel) ──────────────────
+# ── 7. EmulationStation — LED Control in Ports ────────────────────────────────
 echo ""
-echo "7. Setting up EmulationStation LED Control system..."
+echo "7. Installing LED Control into Ports..."
 
-# Create ROMs directory and copy launcher scripts from repo
-mkdir -p "$ROMS_DIR"
-cp "$REPO_DIR/es/set-animation.sh" "$ROMS_DIR/"
-cp "$REPO_DIR/es/set-color.sh"     "$ROMS_DIR/"
-cp "$REPO_DIR/es/off.sh"           "$ROMS_DIR/"
-cp "$REPO_DIR/es/led-joy2key.py"   "$ROMS_DIR/"
-chmod +x "$ROMS_DIR/set-animation.sh" "$ROMS_DIR/set-color.sh" "$ROMS_DIR/off.sh" "$ROMS_DIR/led-joy2key.py"
-# Ensure pi owns the roms directory (in case install ran as root)
-sudo chown -R pi:pi "$ROMS_DIR"
+# Copy scripts to ports roms directory
+mkdir -p "$PORTS_DIR"
+cp "$REPO_DIR/es/led-control.sh" "$PORTS_DIR/"
+cp "$REPO_DIR/es/led-joy2key.py" "$PORTS_DIR/"
+chmod +x "$PORTS_DIR/led-control.sh" "$PORTS_DIR/led-joy2key.py"
 
-# Remove old preset scripts if present from a previous install
-rm -f "$ROMS_DIR/kitt-"*.sh "$ROMS_DIR/glow-"*.sh "$ROMS_DIR/meteor-"*.sh \
-      "$ROMS_DIR/twinkle-"*.sh "$ROMS_DIR/rainbow.sh" "$ROMS_DIR/cycle.sh" \
-      "$ROMS_DIR/solid-"*.sh
+# Add LED Control entry to ports gamelist
+mkdir -p "$(dirname "$PORTS_GAMELIST")"
+python3 - <<'PYEOF'
+import os, sys
+gamelist = os.environ.get('PORTS_GAMELIST', '/home/pi/.emulationstation/gamelists/ports/gamelist.xml')
+entry = '''\
+  <game>
+    <path>./led-control.sh</path>
+    <name>LED Control</name>
+    <desc>Configure arcade cabinet LED animations and colors.</desc>
+  </game>'''
+if os.path.exists(gamelist):
+    content = open(gamelist).read()
+    if 'led-control' not in content:
+        content = content.replace('</gameList>', entry + '\n</gameList>')
+        open(gamelist, 'w').write(content)
+        print('   Added LED Control to ports gamelist')
+    else:
+        print('   LED Control already in ports gamelist — skipping')
+else:
+    open(gamelist, 'w').write('<?xml version="1.0"?>\n<gameList>\n' + entry + '\n</gameList>\n')
+    print('   Created ports gamelist with LED Control entry')
+PYEOF
 
-# Copy gamelist
-mkdir -p "$ES_GAMELISTS"
-cp "$REPO_DIR/es/gamelist.xml" "$ES_GAMELISTS/"
-
-# Add LED Control to es_systems.cfg if not already present
-if ! grep -q "<name>ledcontrol</name>" "$ES_SYSTEMS" 2>/dev/null; then
-    sudo sed -i 's|</systemList>|  <system>\n    <name>ledcontrol</name>\n    <fullname>LED Control</fullname>\n    <path>'"$ROMS_DIR"'</path>\n    <extension>.sh</extension>\n    <command>bash %ROM%</command>\n    <platform></platform>\n    <theme>carbon</theme>\n  </system>\n</systemList>|' "$ES_SYSTEMS"
-    echo "   Added LED Control to $ES_SYSTEMS"
-else
-    echo "   LED Control already in $ES_SYSTEMS — skipping"
+# Remove old custom ledcontrol system from es_systems.cfg (migration cleanup)
+if grep -q "<name>ledcontrol</name>" "$ES_SYSTEMS" 2>/dev/null; then
+    sudo python3 -c "
+import re, sys
+path = '$ES_SYSTEMS'
+content = open(path).read()
+content = re.sub(r'\s*<system>\s*<name>ledcontrol</name>.*?</system>', '', content, flags=re.DOTALL)
+open(path, 'w').write(content)
+print('   Removed old ledcontrol system entry from ' + path)
+"
 fi
+
+# Clean up old ledcontrol roms dir scripts (no longer used)
+rm -f "$OLD_ROMS_DIR/set-animation.sh" "$OLD_ROMS_DIR/set-color.sh" \
+      "$OLD_ROMS_DIR/off.sh" "$OLD_ROMS_DIR/led-joy2key.py"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
@@ -140,7 +160,7 @@ echo "=== Installation complete! ==="
 echo ""
 echo "Next steps:"
 echo "  1. Edit /home/pi/ledcontrol.toml to set your defaults and per-system animations"
-echo "  2. Restart EmulationStation to see the LED Control system in the carousel"
+echo "  2. Restart EmulationStation — LED Control appears under Ports"
 echo "  3. Reboot to test boot behavior: sudo reboot"
 echo ""
 echo "Quick test:"

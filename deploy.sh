@@ -15,8 +15,7 @@ set -e
 PI="${1:-retropie.local}"
 REMOTE="pi@${PI}"
 PROJECT="/home/pi/LEDControl"
-ROMS="/home/pi/RetroPie/roms/ledcontrol"
-ES_GAMELISTS="/home/pi/.emulationstation/gamelists/ledcontrol"
+PORTS="/home/pi/RetroPie/roms/ports"
 
 echo "==> Deploying to ${REMOTE}..."
 
@@ -39,11 +38,10 @@ rsync -av ledcontrol.toml "${REMOTE}:/home/pi/"
 rsync -av ledcontrol.sh \
     "${REMOTE}:~/RetroPie-Setup/scriptmodules/supplementary/"
 
-# ── ES scripts + gamelist ─────────────────────────────────────────────────────
-ssh "${REMOTE}" "mkdir -p ${ES_GAMELISTS} ${ROMS}"
-rsync -av es/gamelist.xml "${REMOTE}:${ES_GAMELISTS}/"
-rsync -av es/set-animation.sh es/set-color.sh es/off.sh "${REMOTE}:${ROMS}/"
-ssh "${REMOTE}" "chmod +x ${ROMS}/set-animation.sh ${ROMS}/set-color.sh ${ROMS}/off.sh"
+# ── ES scripts → Ports ────────────────────────────────────────────────────────
+ssh "${REMOTE}" "mkdir -p ${PORTS}"
+rsync -av es/led-control.sh es/led-joy2key.py "${REMOTE}:${PORTS}/"
+ssh "${REMOTE}" "chmod +x ${PORTS}/led-control.sh ${PORTS}/led-joy2key.py"
 
 # ── Restart service ───────────────────────────────────────────────────────────
 echo "==> Restarting ledcontrol.service..."
