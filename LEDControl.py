@@ -170,13 +170,15 @@ def run_kitt(strip, chase_color, config: dict):
 
 def run_cylon(strip, color, config: dict):
     c = config.get('cylon', {})
-    eye_width = c.get('eye_width', 3)
     speed     = c.get('speed', 0.04)
     min_stare = c.get('min_stare', 0.5)
     max_stare = c.get('max_stare', 3.0)
-    half = eye_width // 2
+
+    # Eye width: 3 LEDs for odd strip lengths (eye can center on a single pixel),
+    # 4 LEDs for even strip lengths (eye spans 2+2 so it stares symmetrically).
+    eye_width = 3 if NUM_LEDS % 2 == 1 else 4
     off  = Color(0, 0, 0)
-    print(f"Cylon | eye_width:{eye_width} speed:{speed} stare:{min_stare}-{max_stare}s")
+    print(f"Cylon | eye_width:{eye_width} (auto) speed:{speed} stare:{min_stare}-{max_stare}s")
 
     # End markers: always-on at 30% brightness to frame the strip
     end_color = limited_color(Color(
@@ -185,18 +187,21 @@ def run_cylon(strip, color, config: dict):
         int(color.b * 0.3),
     ))
 
-    # Eye travels between the two end markers
+    # Eye travels between the two end markers.
+    # For even eye_width the eye "center" is a half-pixel between two LEDs;
+    # we use a float pos and light LEDs whose distance from pos is < eye_width/2.
     left_bound  = 1
     right_bound = NUM_LEDS - 2
+    half = eye_width / 2.0   # float so even eyes split evenly
 
     def draw_eye(pos):
         strip.set_all_pixels(off)
-        set_pixel(strip, 0,           end_color)
+        set_pixel(strip, 0,            end_color)
         set_pixel(strip, NUM_LEDS - 1, end_color)
         for i in range(NUM_LEDS):
             dist = abs(i - pos)
-            if dist <= half:
-                intensity = 1.0 - (dist / (half + 1))
+            if dist < half:
+                intensity = 1.0 - (dist / half)
                 set_pixel(strip, i, limited_color(Color(
                     int(color.r * intensity),
                     int(color.g * intensity),
