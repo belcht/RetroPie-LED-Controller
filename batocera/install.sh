@@ -128,9 +128,17 @@ entry = (
     '    <rating>1.0</rating>\n'
     '  </game>'
 )
-# Always write a clean gamelist — removes stale entries from old installations
-open(gamelist, 'w').write('<?xml version="1.0"?>\n<gameList>\n' + entry + '\n</gameList>\n')
-print('   Wrote ports gamelist')
+if os.path.exists(gamelist):
+    content = open(gamelist).read()
+    # Remove ALL existing led-control entries (handles old name or stale installs)
+    content = re.sub(r'\s*<game>(?:(?!</game>).)*led-control[^<]*\.sh(?:(?!</game>).)*</game>', '', content, flags=re.DOTALL)
+    # Insert our entry before closing tag
+    content = content.replace('</gameList>', entry + '\n</gameList>')
+    open(gamelist, 'w').write(content)
+    print('   Updated ports gamelist (existing entries preserved)')
+else:
+    open(gamelist, 'w').write('<?xml version="1.0"?>\n<gameList>\n' + entry + '\n</gameList>\n')
+    print('   Created ports gamelist')
 PYEOF
 
 # ── 8. Start service now ──────────────────────────────────────────────────────

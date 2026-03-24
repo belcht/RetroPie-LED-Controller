@@ -143,19 +143,15 @@ entry = (
 )
 if os.path.exists(gamelist):
     content = open(gamelist).read()
-    if 'led-control' not in content:
-        content = content.replace('</gameList>', entry + '\n</gameList>')
-        open(gamelist, 'w').write(content)
-        print('   Added LED Control to ports gamelist')
-    elif image_abs not in content:
-        content = re.sub(r'<game>.*?led-control\.sh.*?</game>', entry, content, flags=re.DOTALL)
-        open(gamelist, 'w').write(content)
-        print('   Updated LED Control gamelist entry')
-    else:
-        print('   LED Control already in ports gamelist — skipping')
+    # Remove ALL existing led-control entries (handles old name or stale installs)
+    content = re.sub(r'\s*<game>(?:(?!</game>).)*led-control[^<]*\.sh(?:(?!</game>).)*</game>', '', content, flags=re.DOTALL)
+    # Insert our entry before closing tag
+    content = content.replace('</gameList>', entry + '\n</gameList>')
+    open(gamelist, 'w').write(content)
+    print('   Updated ports gamelist (existing entries preserved)')
 else:
     open(gamelist, 'w').write('<?xml version="1.0"?>\n<gameList>\n' + entry + '\n</gameList>\n')
-    print('   Created ports gamelist with LED Control entry')
+    print('   Created ports gamelist')
 PYEOF
 
 # Add Ports system to es_systems.cfg if not already present
