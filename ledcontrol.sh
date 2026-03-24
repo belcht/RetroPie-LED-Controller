@@ -37,29 +37,31 @@ function gui_ledcontrol() {
 }
 
 function menu_animation() {
-    local cmd=(dialog --backtitle "$__backtitle" --menu "Set Animation" 22 60 14)
+    local cmd=(dialog --backtitle "$__backtitle" --menu "Set Animation" 24 60 9)
     local options=(
         1  "KITT (scanner)"
-        2  "Glow (pulse)"
-        3  "Meteor Shower"
-        4  "Twinkle Sparkles"
-        5  "Cycle  [uses own colors]"
-        6  "Rainbow Wave  [uses own colors]"
-        7  "Solid Color"
-        8  "Off"
+        2  "Cylon Eye (roaming stare)"
+        3  "Glow (pulse)"
+        4  "Meteor Shower"
+        5  "Twinkle Sparkles"
+        6  "Cycle  [uses own colors]"
+        7  "Rainbow Wave  [uses own colors]"
+        8  "Solid Color"
+        9  "Off"
     )
     local choice=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
     [[ -z "$choice" ]] && return
 
     case "$choice" in
         1) set_animation "kitt" ;;
-        2) set_animation "glow" ;;
-        3) set_animation "meteor" ;;
-        4) set_animation "twinkle" ;;
-        5) set_animation "cycle"   ; _warn_color_ignored "Cycle" ;;
-        6) set_animation "rainbow" ; _warn_color_ignored "Rainbow" ;;
-        7) set_solid ;;
-        8) set_animation "off" ;;
+        2) set_animation "cylon" ;;
+        3) set_animation "glow" ;;
+        4) set_animation "meteor" ;;
+        5) set_animation "twinkle" ;;
+        6) set_animation "cycle"   ; _warn_color_ignored "Cycle" ;;
+        7) set_animation "rainbow" ; _warn_color_ignored "Rainbow" ;;
+        8) set_solid ;;
+        9) set_animation "off" ;;
     esac
 }
 
