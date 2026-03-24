@@ -31,6 +31,11 @@ speed = 0.04        # seconds per step
 min_stare = 0.5     # minimum seconds to hold position
 max_stare = 3.0     # maximum seconds to hold position
 
+[centerpulse]
+# Batocera-exclusive animation: pulse expands from center outward
+base_speed = 0.04
+pause_at_full = 0.2
+
 [meteor]
 tail_length = 8
 speed = 0.05
