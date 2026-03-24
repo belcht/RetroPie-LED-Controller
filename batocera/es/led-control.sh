@@ -4,6 +4,12 @@
 # Installed to /userdata/roms/ports/ alongside led-joy2key.py.
 # Appears as "LED Control" in the Ports section of EmulationStation.
 
+# On Batocera/Wayland, ES launches scripts without a terminal — dialog needs one.
+# If stdout is not a TTY, relaunch inside xterm fullscreen.
+if [ ! -t 1 ]; then
+    exec xterm -fullscreen -e bash "$(realpath "$0")"
+fi
+
 LOG="/tmp/ledcontrol-es.log"
 SCRIPT="/userdata/system/LEDControl/LEDControl.py"
 UPDATE_CFG="/userdata/system/LEDControl/update_config.py"
