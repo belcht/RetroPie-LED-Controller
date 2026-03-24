@@ -8,7 +8,7 @@ PID_FILE="/tmp/ledcontrol.pid"
 
 case "$1" in
     start)
-        python3 "$SCRIPT" &
+        python3 "$SCRIPT" > /dev/null 2>&1 &
         echo $! > "$PID_FILE"
         ;;
     stop)

@@ -44,7 +44,7 @@ KEY_UP    = 103
 KEY_DOWN  = 108
 KEY_LEFT  = 105
 KEY_RIGHT = 106
-KEY_ENTER = 28
+KEY_ENTER = 28   # KEY_ENTER (Return)
 KEY_ESC   = 1
 
 # struct input_event: timeval (2 × long) + type (u16) + code (u16) + value (s32)
@@ -60,10 +60,11 @@ AXIS_KEYS = {
     (1,  1): KEY_DOWN,
 }
 
-# Button 0 = confirm, Button 1 = cancel
+# Button IDs from ES input config (es_input.cfg id= field):
+#   "a" (confirm) = id 11, "b" (back) = id 10
 BUTTON_KEYS = {
-    0: KEY_ENTER,
-    1: KEY_ESC,
+    11: KEY_ENTER,   # "a" button — confirm
+    10: KEY_ESC,     # "b" button — back/cancel
 }
 
 

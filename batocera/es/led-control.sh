@@ -7,17 +7,30 @@
 # On Batocera/Wayland, ES launches scripts without a terminal — dialog needs one.
 # If stdout is not a TTY, relaunch inside xterm fullscreen.
 if [ ! -t 1 ]; then
-    exec xterm -fullscreen -e bash "$(realpath "$0")"
+    xterm -fullscreen -e bash "$(realpath "$0")" &
+    XTERM_PID=$!
+    # Forward SIGTERM (Batocera hotkey) to xterm so it doesn't orphan
+    trap "kill \$XTERM_PID 2>/dev/null; exit" TERM INT
+    wait "$XTERM_PID"
+    exit $?
 fi
 
 LOG="/tmp/ledcontrol-es.log"
 SCRIPT="/userdata/system/LEDControl/LEDControl.py"
 UPDATE_CFG="/userdata/system/LEDControl/update_config.py"
 CONFIG="/userdata/system/ledcontrol.toml"
+JOY2KEY="/userdata/roms/ports/led-joy2key.py"
 
-# Batocera maps joystick → keyboard natively — no joy2key daemon needed.
-# Trap ensures clean exit regardless of how the script is closed.
-trap 'clear' EXIT
+_joy2key_start() {
+    python3 "$JOY2KEY" 2>/dev/null || true
+}
+
+_joy2key_stop() {
+    pkill -f led-joy2key.py 2>/dev/null || true
+}
+
+trap '_joy2key_stop; clear' EXIT
+_joy2key_start
 
 _apply() {
     local section="$1" key="$2" val="$3"
