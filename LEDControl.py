@@ -259,6 +259,52 @@ def run_glow(strip, base_color, config: dict):
     except (KeyboardInterrupt, SystemExit):
         print("\nGlow stopped")
 
+def run_centerpulse(strip, base_color, config: dict):
+    c = config.get('centerpulse', {})
+    base_speed = c.get('base_speed', 0.04)
+    pause_at_full = c.get('pause_at_full', 0.2)
+    print(f"CenterPulse | speed:{base_speed} pause:{pause_at_full}s")
+    off = Color(0, 0, 0)
+    full_color = limited_color(base_color)
+    center = NUM_LEDS // 2
+    max_radius = center
+    try:
+        while True:
+            for radius in range(0, max_radius + 1):
+                strip.set_all_pixels(off)
+                for side in range(radius + 1):
+                    idx_left  = center - side
+                    idx_right = center + side
+                    if 0 <= idx_left < NUM_LEDS:
+                        set_pixel(strip, idx_left, full_color)
+                    if 0 <= idx_right < NUM_LEDS:
+                        set_pixel(strip, idx_right, full_color)
+                strip.show()
+                time.sleep(base_speed)
+            time.sleep(pause_at_full)
+            for radius in range(max_radius, -1, -1):
+                strip.set_all_pixels(off)
+                for side in range(radius + 1):
+                    idx_left  = center - side
+                    idx_right = center + side
+                    brightness = 1.0 - (side / max(max_radius, 1)) if side > 0 else 1.0
+                    c_dim = limited_color(Color(
+                        int(base_color.r * brightness),
+                        int(base_color.g * brightness),
+                        int(base_color.b * brightness),
+                    ))
+                    if 0 <= idx_left < NUM_LEDS:
+                        set_pixel(strip, idx_left, c_dim)
+                    if 0 <= idx_right < NUM_LEDS:
+                        set_pixel(strip, idx_right, c_dim)
+                strip.show()
+                time.sleep(base_speed)
+    except (KeyboardInterrupt, SystemExit):
+        print("\nCenterPulse stopped")
+    finally:
+        strip.set_all_pixels(off)
+        strip.show()
+
 def run_cycle(strip, config: dict, cycle_duration=None, fade_time=None, fade_enabled=None):
     c = config.get('cycle', {})
     cycle_duration = cycle_duration if cycle_duration is not None else c.get('cycle_duration', 10.0)
@@ -388,7 +434,7 @@ def main():
     parser.add_argument('--color', '-color', default=None,
                         help='Color name (red, green, blue, white, yellow, purple, cyan, orange, pink) or hex (#FF8800)')
     parser.add_argument('--animate', '-animate',
-                        choices=['kitt', 'cylon', 'glow', 'cycle', 'rainbow', 'meteor', 'twinkle', 'off'],
+                        choices=['kitt', 'cylon', 'glow', 'centerpulse', 'cycle', 'rainbow', 'meteor', 'twinkle', 'off'],
                         default=None)
     parser.add_argument('--global-brightness', type=float, default=None,
                         help='Global brightness limit (0.0–1.0)')
@@ -479,6 +525,8 @@ def main():
             run_cylon(strip, color, config)
         elif animate == 'glow':
             run_glow(strip, color, config)
+        elif animate == 'centerpulse':
+            run_centerpulse(strip, color, config)
         elif animate == 'cycle':
             run_cycle(strip, config, cycle_duration, fade_time, fade_enabled)
         elif animate == 'rainbow':

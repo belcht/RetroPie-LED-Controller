@@ -214,7 +214,7 @@ psx       = { animate = "glow",    color = "cyan" }
 | `kitt` | KITT scanner — single dot bouncing left/right with tail |
 | `cylon` | Cylon eye — wider eye with roaming stare pause at each end |
 | `glow` | Breathing pulse — full strip fades in and out |
-| `centerpulse` | Expands from center outward, then collapses *(Batocera only)* |
+| `centerpulse` | Expands from center outward, then collapses |
 | `meteor` | Meteor shower — streaks falling across the strip |
 | `twinkle` | Random sparkles fading in and out |
 | `cycle` | Slow cross-fade through all colors (or a custom list) |

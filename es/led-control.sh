@@ -33,31 +33,33 @@ _apply() {
 
 _set_animation() {
     local choice anim
-    choice=$(dialog --menu "Set Animation" 22 55 10 \
-        1 "KITT (scanner)" \
-        2 "Cylon Eye (roaming stare)" \
-        3 "Glow (pulse)" \
-        4 "Meteor Shower" \
-        5 "Twinkle Sparkles" \
-        6 "Cycle  [generates own colors]" \
-        7 "Rainbow Wave  [generates own colors]" \
-        8 "Solid Color" \
-        9 "Off" \
+    choice=$(dialog --menu "Set Animation" 24 55 10 \
+        1  "KITT (scanner)" \
+        2  "Cylon Eye (roaming stare)" \
+        3  "Glow (pulse)" \
+        4  "Center Pulse" \
+        5  "Meteor Shower" \
+        6  "Twinkle Sparkles" \
+        7  "Cycle  [generates own colors]" \
+        8  "Rainbow Wave  [generates own colors]" \
+        9  "Solid Color" \
+        10 "Off" \
         2>&1 >/dev/tty)
     clear
     [[ -z "$choice" ]] && return
 
     case "$choice" in
-        1) anim="kitt"    ;;
-        2) anim="cylon"   ;;
-        3) anim="glow"    ;;
-        4) anim="meteor"  ;;
-        5) anim="twinkle" ;;
-        6) anim="cycle"   ;;
-        7) anim="rainbow" ;;
-        8) anim=""        ;;
-        9) anim="off"     ;;
-        *) return ;;
+        1)  anim="kitt"        ;;
+        2)  anim="cylon"       ;;
+        3)  anim="glow"        ;;
+        4)  anim="centerpulse" ;;
+        5)  anim="meteor"      ;;
+        6)  anim="twinkle"     ;;
+        7)  anim="cycle"       ;;
+        8)  anim="rainbow"     ;;
+        9)  anim=""            ;;
+        10) anim="off"         ;;
+        *)  return             ;;
     esac
 
     if [[ "$anim" == "cycle" || "$anim" == "rainbow" ]]; then
