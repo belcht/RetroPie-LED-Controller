@@ -57,7 +57,7 @@ fi
 # ── 4. Install Python library ─────────────────────────────────────────────────
 echo ""
 echo "4. Installing neopixel_spi library..."
-pip install adafruit-blinka adafruit-circuitpython-neopixel-spi -q
+python3 -m pip install adafruit-blinka adafruit-circuitpython-neopixel-spi -q
 echo "   Libraries installed"
 
 # ── 5. batocera-services ──────────────────────────────────────────────────────
