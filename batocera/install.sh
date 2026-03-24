@@ -128,21 +128,9 @@ entry = (
     '    <rating>1.0</rating>\n'
     '  </game>'
 )
-if os.path.exists(gamelist):
-    content = open(gamelist).read()
-    if 'led-control' not in content:
-        content = content.replace('</gameList>', entry + '\n</gameList>')
-        open(gamelist, 'w').write(content)
-        print('   Added LED Control to ports gamelist')
-    elif image_abs not in content:
-        content = re.sub(r'<game>.*?led-control\.sh.*?</game>', entry, content, flags=re.DOTALL)
-        open(gamelist, 'w').write(content)
-        print('   Updated LED Control gamelist entry')
-    else:
-        print('   LED Control already in ports gamelist — skipping')
-else:
-    open(gamelist, 'w').write('<?xml version="1.0"?>\n<gameList>\n' + entry + '\n</gameList>\n')
-    print('   Created ports gamelist with LED Control entry')
+# Always write a clean gamelist — removes stale entries from old installations
+open(gamelist, 'w').write('<?xml version="1.0"?>\n<gameList>\n' + entry + '\n</gameList>\n')
+print('   Wrote ports gamelist')
 PYEOF
 
 # ── 8. Start service now ──────────────────────────────────────────────────────
