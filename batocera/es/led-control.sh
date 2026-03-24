@@ -14,20 +14,10 @@ LOG="/tmp/ledcontrol-es.log"
 SCRIPT="/userdata/system/LEDControl/LEDControl.py"
 UPDATE_CFG="/userdata/system/LEDControl/update_config.py"
 CONFIG="/userdata/system/ledcontrol.toml"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-JOY2KEY="$SCRIPT_DIR/led-joy2key.py"
 
-_joy2key_start() {
-    pkill -f joy2key 2>/dev/null || true
-    sleep 0.1
-    for js in /dev/input/js*; do
-        [[ -e "$js" ]] && python3 "$JOY2KEY" "$js"
-    done
-}
-
-_joy2key_stop() {
-    pkill -f joy2key 2>/dev/null || true
-}
+# Batocera maps joystick → keyboard natively — no joy2key daemon needed.
+# Trap ensures clean exit regardless of how the script is closed.
+trap 'clear' EXIT
 
 _apply() {
     local section="$1" key="$2" val="$3"
@@ -134,7 +124,6 @@ _leds_off() {
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 clear
-_joy2key_start
 
 while true; do
     choice=$(dialog --menu "LED Control" 12 40 4 \
@@ -152,6 +141,3 @@ while true; do
         4 | "") break     ;;
     esac
 done
-
-_joy2key_stop
-clear
