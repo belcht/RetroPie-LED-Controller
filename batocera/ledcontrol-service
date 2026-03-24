@@ -1,0 +1,22 @@
+#!/bin/bash
+# Batocera service script for the WS2812 LED Controller.
+# Installed to /userdata/system/services/ledcontrol
+# Managed via: batocera-services enable|disable|start|stop ledcontrol
+
+SCRIPT="/userdata/system/LEDControl/LEDControl.py"
+PID_FILE="/tmp/ledcontrol.pid"
+
+case "$1" in
+    start)
+        python3 "$SCRIPT" &
+        echo $! > "$PID_FILE"
+        ;;
+    stop)
+        if [ -f "$PID_FILE" ]; then
+            kill "$(cat $PID_FILE)" 2>/dev/null || true
+            sleep 0.3
+            rm -f "$PID_FILE"
+        fi
+        python3 "$SCRIPT" --animate off
+        ;;
+esac

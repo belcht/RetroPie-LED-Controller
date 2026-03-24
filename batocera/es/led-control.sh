@@ -26,15 +26,9 @@ _joy2key_stop() {
 _apply() {
     local section="$1" key="$2" val="$3"
     python3 "$UPDATE_CFG" "$CONFIG" "$section" "$key" "\"$val\"" >> "$LOG" 2>&1
-    # Kill current LED process
-    if [ -f /tmp/ledcontrol.pid ]; then
-        kill "$(cat /tmp/ledcontrol.pid)" 2>/dev/null || true
-        sleep 0.3
-        rm -f /tmp/ledcontrol.pid
-    fi
-    # Start new instance with updated config
-    python3 "$SCRIPT" >> "$LOG" 2>&1 &
-    echo $! > /tmp/ledcontrol.pid
+    batocera-services stop ledcontrol  >> "$LOG" 2>&1
+    sleep 0.3
+    batocera-services start ledcontrol >> "$LOG" 2>&1
 }
 
 _set_animation() {
@@ -129,12 +123,7 @@ print(c.get('general', {}).get('default_animate', ''))
 
 _leds_off() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - LEDs off" >> "$LOG"
-    if [ -f /tmp/ledcontrol.pid ]; then
-        kill "$(cat /tmp/ledcontrol.pid)" 2>/dev/null || true
-        sleep 0.3
-        rm -f /tmp/ledcontrol.pid
-    fi
-    python3 "$SCRIPT" --animate off >> "$LOG" 2>&1
+    batocera-services stop ledcontrol >> "$LOG" 2>&1
 }
 
 # ── Main loop ─────────────────────────────────────────────────────────────────

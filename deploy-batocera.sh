@@ -43,21 +43,16 @@ ssh "${REMOTE}" "chmod +x ${PORTS_DIR}/led-control.sh ${PORTS_DIR}/led-joy2key.p
 ssh "${REMOTE}" "mkdir -p ${GAMELIST_IMAGES}"
 rsync -av es/images/led-control.png "${REMOTE}:${GAMELIST_IMAGES}/"
 
-# ── Restart LED process ───────────────────────────────────────────────────────
-echo "==> Restarting LED process..."
-ssh "${REMOTE}" "
-    if [ -f /tmp/ledcontrol.pid ]; then
-        kill \$(cat /tmp/ledcontrol.pid) 2>/dev/null || true
-        sleep 0.3
-        rm -f /tmp/ledcontrol.pid
-    fi
-    python3 ${INSTALL_DIR}/LEDControl.py &
-    echo \$! > /tmp/ledcontrol.pid
-    echo 'LED process started (PID '\$(cat /tmp/ledcontrol.pid)')'
-"
+# ── Also sync service file ────────────────────────────────────────────────────
+rsync -av batocera/ledcontrol-service "${REMOTE}:/userdata/system/services/ledcontrol"
+ssh "${REMOTE}" "chmod +x /userdata/system/services/ledcontrol"
+
+# ── Restart via batocera-services ─────────────────────────────────────────────
+echo "==> Restarting LED service..."
+ssh "${REMOTE}" "batocera-services stop ledcontrol 2>/dev/null; sleep 0.3; batocera-services start ledcontrol"
 
 echo ""
 echo "==> Done."
 echo "    View log  : ssh ${REMOTE} 'cat /tmp/ledcontrol-es.log'"
 echo "    Test      : ssh ${REMOTE} 'python3 ${INSTALL_DIR}/LEDControl.py --animate kitt --color red'"
-echo "    Kill LED  : ssh ${REMOTE} 'kill \$(cat /tmp/ledcontrol.pid)'"
+echo "    Stop      : ssh ${REMOTE} 'batocera-services stop ledcontrol'"

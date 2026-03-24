@@ -3,7 +3,7 @@
 #
 # Batocera passes: $1=system $2=emulator $3=rom_path $4=command
 #
-# Kills the main LED process, then runs a game-specific animation in the
+# Stops the main LED service, then runs a game-specific animation in the
 # background (based on [systems] and [roms] in ledcontrol.toml).
 
 SYSTEM="$1"
@@ -11,12 +11,9 @@ ROM="$3"
 SCRIPT="/userdata/system/LEDControl/LEDControl.py"
 PID_FILE="/tmp/led-game.pid"
 
-# Kill main LED process
-if [ -f /tmp/ledcontrol.pid ]; then
-    kill "$(cat /tmp/ledcontrol.pid)" 2>/dev/null || true
-    sleep 0.3
-    rm -f /tmp/ledcontrol.pid
-fi
+# Stop main service so it doesn't conflict
+batocera-services stop ledcontrol 2>/dev/null
+sleep 0.3
 
 # Launch game animation in background
 python3 "$SCRIPT" --system "$SYSTEM" --rom "$ROM" &

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # led-game-stop.sh — Called by gameStop.sh when returning to EmulationStation.
 #
-# Kills the game animation process and restarts the main LED process,
+# Kills the game animation process and restarts the main LED service,
 # which will pick up the default animation from ledcontrol.toml.
 
-SCRIPT="/userdata/system/LEDControl/LEDControl.py"
 PID_FILE="/tmp/led-game.pid"
 
 # Kill the game's LED process (its finally block will clear the LEDs)
@@ -14,6 +13,5 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
 fi
 
-# Restart the main LED process (picks up default animation from TOML)
-python3 "$SCRIPT" &
-echo $! > /tmp/ledcontrol.pid
+# Restart the main service (picks up default animation from TOML)
+batocera-services start ledcontrol

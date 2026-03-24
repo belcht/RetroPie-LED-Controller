@@ -11,12 +11,11 @@ echo "Repo directory: $REPO_DIR"
 
 INSTALL_DIR="/userdata/system/LEDControl"
 CONFIG_PATH="/userdata/system/ledcontrol.toml"
+SERVICES_DIR="/userdata/system/services"
 PORTS_DIR="/userdata/roms/ports"
 GAMELIST_DIR="/userdata/system/configs/emulationstation/gamelists/ports"
 IMAGES_DIR="$GAMELIST_DIR/images"
 GAMELIST="$GAMELIST_DIR/gamelist.xml"
-CUSTOM_SH="/userdata/system/custom.sh"
-CUSTOM_STOP="/userdata/system/custom-shutdown.sh"
 GAME_START="/userdata/system/scripts/gameStart.sh"
 GAME_STOP="/userdata/system/scripts/gameStop.sh"
 
@@ -61,61 +60,51 @@ echo "4. Installing neopixel_spi library..."
 pip install adafruit-blinka adafruit-circuitpython-neopixel-spi -q
 echo "   Libraries installed"
 
-# ── 5. Boot startup hook ──────────────────────────────────────────────────────
+# ── 5. batocera-services ──────────────────────────────────────────────────────
 echo ""
-echo "5. Installing boot startup hook..."
+echo "5. Installing batocera-services entry..."
+mkdir -p "$SERVICES_DIR"
+cp "$REPO_DIR/batocera/ledcontrol-service" "$SERVICES_DIR/ledcontrol"
+chmod +x "$SERVICES_DIR/ledcontrol"
+batocera-services enable ledcontrol
+echo "   Service enabled"
+
+# ── 6. Game hooks ─────────────────────────────────────────────────────────────
+echo ""
+echo "6. Installing game hooks..."
 _install_hook() {
     local hook_file="$1"
-    local hook_body="$2"
+    local hook_call="$2"
 
     if [ -f "$hook_file" ]; then
         if grep -q "LEDControl" "$hook_file" 2>/dev/null; then
             echo "   $hook_file already has LED hook — skipping"
         else
-            printf '\n# LED Controller\n%s\n' "$hook_body" >> "$hook_file"
+            printf '\n# LED Controller hook\n%s\n' "$hook_call" >> "$hook_file"
             echo "   Appended LED hook to $hook_file"
         fi
     else
-        printf '#!/bin/bash\n# LED Controller\n%s\n' "$hook_body" > "$hook_file"
+        mkdir -p "$(dirname "$hook_file")"
+        printf '#!/bin/bash\n# LED Controller hook\n%s\n' "$hook_call" > "$hook_file"
         chmod +x "$hook_file"
         echo "   Created $hook_file"
     fi
 }
 
-_install_hook "$CUSTOM_SH" \
-    'python3 /userdata/system/LEDControl/LEDControl.py &
-echo $! > /tmp/ledcontrol.pid'
-
-# ── 6. Shutdown hook ──────────────────────────────────────────────────────────
-echo ""
-echo "6. Installing shutdown hook..."
-_install_hook "$CUSTOM_STOP" \
-    'if [ -f /tmp/ledcontrol.pid ]; then
-    kill "$(cat /tmp/ledcontrol.pid)" 2>/dev/null || true
-    rm -f /tmp/ledcontrol.pid
-fi
-python3 /userdata/system/LEDControl/LEDControl.py --animate off'
-
-# ── 7. Game hooks ─────────────────────────────────────────────────────────────
-echo ""
-echo "7. Installing game hooks..."
-mkdir -p "$(dirname "$GAME_START")"
 _install_hook "$GAME_START" '/userdata/system/LEDControl/led-game-start.sh "$@"'
 _install_hook "$GAME_STOP"  '/userdata/system/LEDControl/led-game-stop.sh "$@"'
 
-# ── 8. ES Ports entry ─────────────────────────────────────────────────────────
+# ── 7. ES Ports entry ─────────────────────────────────────────────────────────
 echo ""
-echo "8. Installing LED Control into Ports..."
+echo "7. Installing LED Control into Ports..."
 mkdir -p "$PORTS_DIR"
 cp "$REPO_DIR/batocera/es/led-control.sh" "$PORTS_DIR/"
 cp "$REPO_DIR/batocera/es/led-joy2key.py"  "$PORTS_DIR/"
 chmod +x "$PORTS_DIR/led-control.sh" "$PORTS_DIR/led-joy2key.py"
 
-# Cover art
 mkdir -p "$IMAGES_DIR"
 cp "$REPO_DIR/es/images/led-control.png" "$IMAGES_DIR/"
 
-# Add gamelist entry
 mkdir -p "$GAMELIST_DIR"
 image_abs="$IMAGES_DIR/led-control.png"
 python3 - <<PYEOF
@@ -156,16 +145,11 @@ else:
     print('   Created ports gamelist with LED Control entry')
 PYEOF
 
-# ── 9. Start LED service now ──────────────────────────────────────────────────
+# ── 8. Start service now ──────────────────────────────────────────────────────
 echo ""
-echo "9. Starting LED controller..."
-if [ -f /tmp/ledcontrol.pid ]; then
-    kill "$(cat /tmp/ledcontrol.pid)" 2>/dev/null || true
-    rm -f /tmp/ledcontrol.pid
-fi
-python3 "$INSTALL_DIR/LEDControl.py" &
-echo $! > /tmp/ledcontrol.pid
-echo "   Running (PID $(cat /tmp/ledcontrol.pid))"
+echo "8. Starting LED service..."
+batocera-services start ledcontrol
+echo "   Service started"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
@@ -173,10 +157,12 @@ echo "=== Installation complete! ==="
 echo ""
 echo "Next steps:"
 echo "  1. Edit $CONFIG_PATH to set your defaults and per-system animations"
-echo "  2. Reboot to test boot behavior: reboot"
-echo "  3. Restart EmulationStation — LED Control appears under Ports"
+echo "  2. Restart EmulationStation — LED Control appears under Ports"
+echo "  3. Reboot to confirm auto-start: reboot"
 echo ""
 echo "Quick test:"
 echo "  python3 $INSTALL_DIR/LEDControl.py --animate kitt --color red"
 echo ""
-echo "Note: if LEDs don't light up, ensure SPI is enabled and reboot first."
+echo "Service management:"
+echo "  batocera-services start ledcontrol"
+echo "  batocera-services stop ledcontrol"
