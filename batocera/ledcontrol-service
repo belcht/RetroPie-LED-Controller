@@ -17,6 +17,6 @@ case "$1" in
             sleep 0.3
             rm -f "$PID_FILE"
         fi
-        python3 "$SCRIPT" --animate off
+        python3 "$SCRIPT" --animate off --config /userdata/system/ledcontrol.toml || true
         ;;
 esac

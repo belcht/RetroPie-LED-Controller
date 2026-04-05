@@ -1,55 +1,119 @@
 #!/usr/bin/env bash
-# deploy.sh — Sync repo files to Pi and restart the LED service.
+# deploy.sh — Sync repo to RetroPie or Batocera and run install
 #
 # Usage:
-#   ./deploy.sh                    # uses default hostname 'retropie.local'
-#   ./deploy.sh 192.168.1.42       # use IP address
-#   ./deploy.sh retropie.local     # use hostname
+#   bash deploy.sh retropie                  # deploy to RetroPie (default)
+#   bash deploy.sh batocera                  # deploy to Batocera
+#   bash deploy.sh pivert.local              # any hostname — auto-detects retropie
+#   bash deploy.sh retropie 192.168.1.42     # named target with IP override
+#   bash deploy.sh batocera 192.168.1.55     # named target with IP override
+#   bash deploy.sh retropie --sync-only      # sync files only, skip install
 #
-# Requirements:
-#   - SSH key auth to the Pi: ssh-copy-id pi@retropie.local
-#   - rsync installed on Mac (comes with macOS)
+# First-time setup:
+#   ssh-copy-id pi@retropie.local            # RetroPie (password: raspberry)
+#   ssh-copy-id root@batocera.local          # Batocera  (password: linux)
 
 set -e
 
-PI="${1:-retropie.local}"
-REMOTE="pi@${PI}"
-PROJECT="/home/pi/LEDControl"
-PORTS="/home/pi/RetroPie/roms/ports"
+LOG="$(dirname "$0")/deploy.log"
+exec > >(tee "$LOG") 2>&1
+echo "Deploy started: $(date)"
 
-echo "==> Deploying to ${REMOTE}..."
+# ── Parse args ────────────────────────────────────────────────────────────────
+TARGET=""
+HOST_OVERRIDE=""
+SYNC_ONLY=false
 
-# ── Python scripts → /home/pi/LEDControl/ ─────────────────────────────────────
-rsync -av --exclude='*.pyc' --exclude='__pycache__' \
-    LEDControl.py \
-    update_config.py \
-    led-game-start.sh \
-    led-game-end.sh \
-    "${REMOTE}:${PROJECT}/"
+for arg in "$@"; do
+    case $arg in
+        retropie|batocera) TARGET="$arg" ;;
+        --sync-only)       SYNC_ONLY=true ;;
+        *)                 HOST_OVERRIDE="$arg" ;;
+    esac
+done
 
-ssh "${REMOTE}" "chmod +x ${PROJECT}/led-game-start.sh ${PROJECT}/led-game-end.sh"
+# If no named target given, default to retropie
+[ -z "$TARGET" ] && TARGET="retropie"
 
-# ── Config → /home/pi/ ────────────────────────────────────────────────────────
-# Note: only deploy if you've intentionally changed the repo's toml.
-# Your Pi's toml may have local customizations.
-rsync -av ledcontrol.toml "${REMOTE}:/home/pi/"
+# ── Target config ─────────────────────────────────────────────────────────────
+if [ "$TARGET" = "batocera" ]; then
+    DEFAULT_HOST="batocera.local"
+    PI_USER="root"
+    REMOTE_DIR="/userdata/system/LEDControl"
+    INSTALL_CMD="bash batocera/install.sh"
+else
+    DEFAULT_HOST="retropie.local"
+    PI_USER="pi"
+    REMOTE_DIR="/home/pi/LEDControl"
+    INSTALL_CMD="bash install.sh"
+fi
 
-# ── RetroPie menu module ───────────────────────────────────────────────────────
-rsync -av ledcontrol.sh \
-    "${REMOTE}:~/RetroPie-Setup/scriptmodules/supplementary/"
+PI_HOST="${HOST_OVERRIDE:-$DEFAULT_HOST}"
+REMOTE="$PI_USER@$PI_HOST"
 
-# ── ES scripts + cover art → Ports ───────────────────────────────────────────
-ssh "${REMOTE}" "mkdir -p ${PORTS}"
-rsync -av es/led-control.sh es/led-joy2key.py "${REMOTE}:${PORTS}/"
-ssh "${REMOTE}" "chmod +x ${PORTS}/led-control.sh ${PORTS}/led-joy2key.py"
-ssh "${REMOTE}" "mkdir -p ~/.emulationstation/gamelists/ports/images"
-rsync -av es/images/led-control.png "${REMOTE}:~/.emulationstation/gamelists/ports/images/"
+echo "=== RetroLED Deploy ==="
+echo "Target  : $TARGET"
+echo "Host    : $REMOTE"
+echo "Remote  : $REMOTE_DIR"
+echo ""
 
-# ── Restart service ───────────────────────────────────────────────────────────
-echo "==> Restarting ledcontrol.service..."
-ssh "${REMOTE}" "sudo systemctl restart ledcontrol.service"
+# ── Connection check ──────────────────────────────────────────────────────────
+if ! ssh -o ConnectTimeout=5 -o BatchMode=yes "$REMOTE" true 2>/dev/null; then
+    echo "ERROR: Cannot connect to $PI_HOST as $PI_USER"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  1. Make sure the device is on and on the same network"
+    echo "  2. Try passing the IP: bash deploy.sh $TARGET 192.168.x.x"
+    echo "  3. Set up passwordless SSH:"
+    if [ "$TARGET" = "batocera" ]; then
+        echo "       ssh-copy-id root@$PI_HOST   (password: linux)"
+    else
+        echo "       ssh-copy-id pi@$PI_HOST     (password: raspberry)"
+    fi
+    exit 1
+fi
+
+echo "Connection OK"
+echo ""
+
+# ── Sync ──────────────────────────────────────────────────────────────────────
+ssh "$REMOTE" "mkdir -p $REMOTE_DIR"
+
+echo "Syncing files..."
+rsync -avz --delete \
+    --exclude='.git/' \
+    --exclude='venv/' \
+    --exclude='__pycache__/' \
+    --exclude='*.pyc' \
+    --exclude='.DS_Store' \
+    --exclude='*.so' \
+    --exclude='deploy.log' \
+    ./ "$REMOTE:$REMOTE_DIR/"
 
 echo ""
-echo "==> Done."
-echo "    Check status : ssh ${REMOTE} 'sudo systemctl status ledcontrol.service'"
-echo "    View logs    : ssh ${REMOTE} 'journalctl -u ledcontrol.service -f'"
+echo "Sync complete."
+
+if [ "$SYNC_ONLY" = true ]; then
+    echo "Skipping install (--sync-only)"
+    exit 0
+fi
+
+# ── Install ───────────────────────────────────────────────────────────────────
+echo ""
+echo "Running $INSTALL_CMD on $TARGET..."
+ssh "$REMOTE" "cd $REMOTE_DIR && $INSTALL_CMD"
+
+echo ""
+echo "=== Deploy complete! ==="
+echo ""
+if [ "$TARGET" = "batocera" ]; then
+    echo "Useful commands:"
+    echo "  Service status : ssh $REMOTE 'batocera-services status ledcontrol'"
+    echo "  Start service  : ssh $REMOTE 'batocera-services start ledcontrol'"
+    echo "  Restart ES     : ssh $REMOTE 'batocera-es restart'"
+else
+    echo "Useful commands:"
+    echo "  LED logs       : ssh $REMOTE 'journalctl -u ledcontrol.service -f'"
+    echo "  Service status : ssh $REMOTE 'sudo systemctl status ledcontrol.service'"
+    echo "  Restart ES     : ssh $REMOTE 'sudo systemctl restart emulationstation'"
+fi

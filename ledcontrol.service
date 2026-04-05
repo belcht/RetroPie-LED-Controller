@@ -7,8 +7,9 @@ User=pi
 Group=pi
 WorkingDirectory=/home/pi/LEDControl
 ExecStart=/home/pi/LEDControl/venv/bin/python3 /home/pi/LEDControl/LEDControl.py 
-Restart=always
+Restart=on-failure
 RestartSec=5
+TimeoutStopSec=5
 StandardOutput=journal
 StandardError=journal
 Environment="PYTHONUNBUFFERED=1"
