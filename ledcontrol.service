@@ -1,6 +1,10 @@
 [Unit]
 Description=WS2812 LED Control Service (LEDControl.py)
-After=network.target multi-user.target
+# No network dependency — this drives local SPI and a localhost-only WebSocket.
+# Do NOT order it after network.target/multi-user.target: a slow unit in that
+# chain (e.g. Samba's nmbd timing out ~90s when WiFi is down at boot) would
+# otherwise keep the LED strip dark until it clears. Start early, in parallel.
+After=basic.target
 
 [Service]
 User=pi

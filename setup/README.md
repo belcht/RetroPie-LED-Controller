@@ -103,6 +103,39 @@ journalctl -u wifi-watchdog.service -f           # watch it work
 tail -f /var/log/wifi-watchdog.log
 ```
 
+### 3d. Don't block boot waiting for WiFi
+
+When WiFi fails to associate at boot, `NetworkManager-wait-online.service` stalls
+the boot until its timeout (~100 s) — which delays `multi-user.target` and
+everything ordered after it, including `ledcontrol.service` (so the **LED strip
+stays dark ~100 s**). Nothing on an arcade box needs to block boot on network —
+the watchdog (3c) brings WiFi up asynchronously — so disable it:
+
+```bash
+sudo systemctl disable NetworkManager-wait-online.service
+```
+
+Boot then proceeds immediately, WiFi connects in the background whenever it
+manages to.
+
+### 3e. Disable Samba `nmbd` (90 s boot timeout with no network)
+
+`nmbd.service` (Samba's NetBIOS name daemon) takes **~90 s** to time out at boot
+when WiFi isn't up yet, and it sits in the chain to `multi-user.target` — so it
+slows the *entire* boot. `nmbd` only provides legacy "Network Neighborhood"
+browsing; `smbd` (the actual file server) keeps working via `<host>.local`
+(mDNS) or IP. Disable it:
+
+```bash
+sudo systemctl disable nmbd        # smbd stays enabled
+```
+
+> Note: even with the above, the **LED strip** is kept fast at boot by
+> decoupling `ledcontrol.service` from the network chain
+> (`After=basic.target`, not `network.target`/`multi-user.target`) — see
+> `ledcontrol.service` in the repo root. Without that, any slow unit in the
+> `multi-user.target` chain leaves the strip dark until it clears.
+
 ---
 
 ## Notes
