@@ -1,0 +1,4 @@
+# Stable name for the Waveshare/JMTek USB PnP audio dongle (0c76:1203),
+# regardless of which USB port it's in or what ALSA index it enumerates as.
+# /etc/asound.conf points the default PCM/ctl at card "WaveshareUSB".
+SUBSYSTEM=="sound", ACTION=="add", ATTRS{idVendor}=="0c76", ATTRS{idProduct}=="1203", ATTR{id}="WaveshareUSB"
