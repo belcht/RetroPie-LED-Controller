@@ -47,8 +47,18 @@ COLOR_MAP = {
 }
 
 # === Signal handling — systemd sends SIGTERM, not SIGINT ===
+# _Shutdown subclasses BaseException (not Exception) so the per-animation
+# `except (KeyboardInterrupt, SystemExit)` / `except Exception` handlers can't
+# swallow it. It propagates straight to main()'s `finally`, which blanks the
+# strip and exits cleanly. (If we raise SystemExit here it gets caught
+# mid-animation, main()'s `while True` restarts the animation, the process
+# never exits, and systemd SIGKILLs us — LEDs never blank, reboots stall, and
+# leds-off.service times out waiting on us.)
+class _Shutdown(BaseException):
+    pass
+
 def _handle_signal(sig, frame):
-    raise SystemExit(0)
+    raise _Shutdown()
 
 signal.signal(signal.SIGTERM, _handle_signal)
 signal.signal(signal.SIGINT, _handle_signal)
@@ -57,8 +67,10 @@ signal.signal(signal.SIGINT, _handle_signal)
 # WebSocket server
 # ────────────────────────────────────────────────
 
-_ws_pixel_queue = queue.SimpleQueue()   # main thread writes, asyncio reads
-_ws_command_queue = queue.SimpleQueue() # asyncio writes, main thread reads
+# Bounded so a dead consumer (e.g. WS thread crashed on a port conflict) can't
+# eat memory forever — only the latest frame matters anyway.
+_ws_pixel_queue = queue.Queue(maxsize=4)   # main thread writes, asyncio reads
+_ws_command_queue = queue.SimpleQueue()    # asyncio writes, main thread reads
 _ws_clients = set()
 WS_PORT = 8765
 
@@ -77,7 +89,10 @@ def broadcast_pixels(strip):
     try:
         pixels = [[strip._pixels[i].r, strip._pixels[i].g, strip._pixels[i].b]
                   for i in range(NUM_LEDS)]
-        _ws_pixel_queue.put(pixels)
+        _ws_pixel_queue.put_nowait(pixels)
+    except queue.Full:
+        # Consumer is behind or the WS thread has died — drop this frame.
+        pass
     except Exception:
         pass
 
@@ -165,8 +180,8 @@ if WS_ENABLED:
         except Exception as e:
             print(f"WebSocket server error: {e}", file=sys.stderr)
 
-    _ws_thread = threading.Thread(target=_ws_thread_main, daemon=True)
-    _ws_thread.start()
+    # Thread is started by main() so --once can skip it
+    import json
 else:
     import json
 
@@ -238,8 +253,15 @@ def load_config(config_path: Path) -> dict:
         print(f"Loaded config from {config_path}")
         return config
     except Exception as e:
-        print(f"Error loading config {config_path}: {e}", file=sys.stderr)
-        return {}
+        # Don't silently fall back — running with defaults (num_leds=14 etc.)
+        # when the user has a real config is more confusing than crashing.
+        bar = "=" * 60
+        print(bar, file=sys.stderr)
+        print(f"FATAL: Failed to parse {config_path}", file=sys.stderr)
+        print(f"  {type(e).__name__}: {e}", file=sys.stderr)
+        print("Fix the syntax error, or delete the file to use defaults.", file=sys.stderr)
+        print(bar, file=sys.stderr)
+        sys.exit(1)
 
 # ────────────────────────────────────────────────
 # Animations
@@ -247,7 +269,7 @@ def load_config(config_path: Path) -> dict:
 
 def run_kitt(strip, chase_color, config: dict):
     c = config.get('kitt', {})
-    tail_length = c.get('tail_length', 6)
+    tail_length = max(2, c.get('tail_length', 6))   # divide-by-zero guard
     base_speed = c.get('base_speed', 0.04)
     print(f"KITT | color:{chase_color} tail:{tail_length} speed:{base_speed}")
     off = Color(0, 0, 0)
@@ -503,7 +525,7 @@ def run_rainbow(strip, config: dict):
 
 def run_meteor(strip, color, config: dict):
     c = config.get('meteor', {})
-    tail_length = c.get('tail_length', 8)
+    tail_length = max(1, c.get('tail_length', 8))   # divide-by-zero guard
     speed = c.get('speed', 0.05)
     print(f"Meteor | tail:{tail_length} speed:{speed}")
     off = Color(0, 0, 0)
@@ -593,6 +615,8 @@ def main():
     parser.add_argument('--no-fade', action='store_true')
     parser.add_argument('--system', default=None)
     parser.add_argument('--rom', default=None)
+    parser.add_argument('--once', action='store_true',
+                        help='Set the requested state and exit (no animation loop, no WS server)')
 
     args = parser.parse_args()
     config = load_config(args.config)
@@ -642,6 +666,20 @@ def main():
     fade_enabled = not args.no_fade and cycle_c.get('fade_enabled', True)
 
     strip = WS2812SpiDriver(spi_bus=SPI_BUS, spi_device=SPI_DEVICE, led_count=NUM_LEDS).get_strip()
+
+    # One-shot mode: set the strip and exit. Skips the WS server entirely so
+    # this can run alongside a live service without fighting for port 8765.
+    if args.once:
+        if animate == 'off' or color_name == 'off':
+            strip.set_all_pixels(Color(0, 0, 0))
+        else:
+            strip.set_all_pixels(limited_color(color))
+        strip.show()
+        print(f"One-shot: animate={animate} color={color_name} — exiting")
+        return
+
+    if WS_ENABLED:
+        threading.Thread(target=_ws_thread_main, daemon=True).start()
 
     try:
         while True:
@@ -694,7 +732,7 @@ def main():
                     _save_config(args.config, animate, color_name,
                                  sw.brightness if sw.brightness is not None else None)
 
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit, _Shutdown):
         print("\nStopped")
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

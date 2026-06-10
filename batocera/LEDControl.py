@@ -47,8 +47,17 @@ COLOR_MAP = {
 }
 
 # === Signal handling ===
+# _Shutdown subclasses BaseException (not Exception) so the per-animation
+# `except (KeyboardInterrupt, SystemExit)` / `except Exception` handlers can't
+# swallow it. It propagates straight to main()'s `finally`, which blanks the
+# strip and exits cleanly. (If we raise SystemExit here it gets caught
+# mid-animation, main()'s `while True` restarts the animation, the process
+# never exits, and the service manager has to SIGKILL us — LEDs never blank.)
+class _Shutdown(BaseException):
+    pass
+
 def _handle_signal(sig, frame):
-    raise SystemExit(0)
+    raise _Shutdown()
 
 signal.signal(signal.SIGTERM, _handle_signal)
 signal.signal(signal.SIGINT, _handle_signal)
@@ -57,7 +66,9 @@ signal.signal(signal.SIGINT, _handle_signal)
 # WebSocket server
 # ────────────────────────────────────────────────
 
-_ws_pixel_queue = queue.SimpleQueue()
+# Bounded so a dead consumer (e.g. WS thread crashed on a port conflict) can't
+# eat memory forever — only the latest frame matters anyway.
+_ws_pixel_queue = queue.Queue(maxsize=4)
 _ws_command_queue = queue.SimpleQueue()
 _ws_clients = set()
 WS_PORT = 8765
@@ -75,7 +86,10 @@ def broadcast_pixels(pixels):
         return
     try:
         data = [[pixels[i][0], pixels[i][1], pixels[i][2]] for i in range(NUM_LEDS)]
-        _ws_pixel_queue.put(data)
+        _ws_pixel_queue.put_nowait(data)
+    except queue.Full:
+        # Consumer is behind or the WS thread has died — drop this frame.
+        pass
     except Exception:
         pass
 
@@ -159,8 +173,7 @@ if WS_ENABLED:
     def _ws_thread_main():
         asyncio.run(_ws_main())
 
-    _ws_thread = threading.Thread(target=_ws_thread_main, daemon=True)
-    _ws_thread.start()
+    # Thread is started by main() so --once can skip it
 
 # ────────────────────────────────────────────────
 # Helpers
@@ -224,8 +237,15 @@ def load_config(config_path: Path) -> dict:
         print(f"Loaded config from {config_path}")
         return config
     except Exception as e:
-        print(f"Error loading config {config_path}: {e}", file=sys.stderr)
-        return {}
+        # Don't silently fall back — running with defaults (num_leds=14 etc.)
+        # when the user has a real config is more confusing than crashing.
+        bar = "=" * 60
+        print(bar, file=sys.stderr)
+        print(f"FATAL: Failed to parse {config_path}", file=sys.stderr)
+        print(f"  {type(e).__name__}: {e}", file=sys.stderr)
+        print("Fix the syntax error, or delete the file to use defaults.", file=sys.stderr)
+        print(bar, file=sys.stderr)
+        sys.exit(1)
 
 # ────────────────────────────────────────────────
 # Animations
@@ -233,9 +253,9 @@ def load_config(config_path: Path) -> dict:
 
 def run_kitt(pixels, chase_color: tuple, config: dict):
     c = config.get('kitt', {})
-    tail_length = c.get('tail_length', 6)
+    tail_length = max(2, c.get('tail_length', 6))   # divide-by-zero guard
     base_speed = c.get('base_speed', 0.04)
-    print(f"KITT | tail:{tail_length} speed:{base_speed}")
+    print(f"KITT | color:{chase_color} tail:{tail_length} speed:{base_speed}")
     off = (0, 0, 0)
     pixels.fill(off)
     pixels.show()
@@ -481,7 +501,7 @@ def run_rainbow(pixels, config: dict):
 
 def run_meteor(pixels, color: tuple, config: dict):
     c = config.get('meteor', {})
-    tail_length = c.get('tail_length', 8)
+    tail_length = max(1, c.get('tail_length', 8))   # divide-by-zero guard
     speed = c.get('speed', 0.05)
     print(f"Meteor | tail:{tail_length} speed:{speed}")
     off = (0, 0, 0)
@@ -571,15 +591,28 @@ def main():
     parser.add_argument('--no-fade', action='store_true')
     parser.add_argument('--system', default=None)
     parser.add_argument('--rom', default=None)
+    parser.add_argument('--once', action='store_true',
+                        help='Set the requested state and exit (no animation loop, no WS server)')
 
     args = parser.parse_args()
     config = load_config(args.config)
 
     hw = config.get('hardware', {})
     NUM_LEDS = hw.get('num_leds', 14)
+    spi_bus    = hw.get('spi_bus', 0)
+    spi_device = hw.get('spi_device', 0)
     if NUM_LEDS > MAX_LEDS:
         print(f"Warning: num_leds={NUM_LEDS} exceeds MAX_LEDS={MAX_LEDS}. Clamping.", file=sys.stderr)
         NUM_LEDS = MAX_LEDS
+    # adafruit-blinka's board module always uses the Pi's default SPI bus (SPI0).
+    # Honour spi_bus/spi_device only if they match the default — otherwise the user
+    # would silently get the wrong bus.
+    if spi_bus != 0 or spi_device != 0:
+        print(f"ERROR: spi_bus={spi_bus} spi_device={spi_device} requested, but this "
+              f"build only supports SPI 0 (the Pi's default). Edit ledcontrol.toml "
+              f"or use the RetroPie LEDControl.py which supports arbitrary buses.",
+              file=sys.stderr)
+        sys.exit(1)
 
     global_brightness = (
         args.global_brightness if args.global_brightness is not None
@@ -618,6 +651,20 @@ def main():
     except Exception as e:
         print(f"Failed to initialise SPI/NeoPixel: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # One-shot mode: set the strip and exit. Skips the WS server entirely so
+    # this can run alongside a live service without fighting for port 8765.
+    if args.once:
+        if animate == 'off' or color_name == 'off':
+            pixels.fill((0, 0, 0))
+        else:
+            pixels.fill(limited_color(color))
+        pixels.show()
+        print(f"One-shot: animate={animate} color={color_name} — exiting")
+        return
+
+    if WS_ENABLED:
+        threading.Thread(target=_ws_thread_main, daemon=True).start()
 
     cycle_c = config.get('cycle', {})
     cycle_duration = args.cycle_duration if args.cycle_duration is not None else cycle_c.get('cycle_duration', 10.0)
@@ -675,7 +722,7 @@ def main():
                     _save_config(args.config, animate, color_name,
                                  sw.brightness if sw.brightness is not None else None)
 
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit, _Shutdown):
         print("\nStopped")
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
