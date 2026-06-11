@@ -153,31 +153,31 @@ m_upgrade(){
   ok "OS up to date"
 }
 
-# Invoke RetroPie-Setup the way it expects: as root, with SUDO_USER pointing at
-# the login user so it installs games/configs to that user's home. HOME=/root so
-# any `git config --global` it runs lands somewhere writable.
-rsetup(){ HOME=/root SUDO_USER="$TARGET_USER" "$TARGET_HOME/RetroPie-Setup/retropie_setup.sh" "$@"; }
+# Drive RetroPie's NON-interactive backend. retropie_setup.sh is the dialog GUI;
+# retropie_packages.sh + __nodialog=1 is what actually runs an action headless
+# (this is exactly how RetroPie's own image builder installs unattended).
+# SUDO_USER points it at the login user (so it installs to that user's home and
+# runs git on the repo as that user — the repo is owned by them).
+rsetup(){ HOME=/root SUDO_USER="$TARGET_USER" __nodialog=1 "$TARGET_HOME/RetroPie-Setup/retropie_packages.sh" "$@"; }
 
 m_retropie(){
   [ "$DO_RETROPIE" = 1 ] || { info "skipped (--no-retropie)"; return; }
   step "Installing RetroPie (Core + Main)"
-  apt-get install -y git lsb-release
+  apt-get install -y git dialog xmlstarlet joystick lsb-release
   local rps="$TARGET_HOME/RetroPie-Setup"
-  # Keep the repo ROOT-owned: we run retropie_setup.sh as root, and modern git
-  # aborts ("dubious ownership") on a repo owned by a different user. RetroPie
-  # still installs for $TARGET_USER — it uses SUDO_USER, not the repo's owner.
+  # RetroPie-Setup runs its git/file ops as the login user (via SUDO_USER), so
+  # the repo must be owned by that user or git aborts with "dubious ownership".
   if [ ! -d "$rps" ]; then
-    git clone --depth=1 https://github.com/RetroPie/RetroPie-Setup.git "$rps"
+    sudo -u "$TARGET_USER" git clone --depth=1 https://github.com/RetroPie/RetroPie-Setup.git "$rps"
   else
-    chown -R root:root "$rps" 2>/dev/null || true   # heal a clone left by an earlier run
+    chown -R "$TARGET_USER":"$TARGET_USER" "$rps" 2>/dev/null || true   # heal ownership from an earlier run
     info "RetroPie-Setup already present — updating"
-    git -C "$rps" pull --ff-only || true
+    sudo -u "$TARGET_USER" git -C "$rps" pull --ff-only || true
   fi
-  chmod +x "$rps/retropie_setup.sh"
   rsetup setup basic_install
   [ "$DO_AUTOSTART" = 1 ] && { rsetup autostart enable; ok "boot-to-EmulationStation enabled"; }
-  [ "$DO_USBROMSERVICE" = 1 ] && rsetup usbromservice install || true
-  [ "$DO_SAMBA" = 1 ] && rsetup samba install || true
+  [ "$DO_USBROMSERVICE" = 1 ] && rsetup usbromservice || true
+  [ "$DO_SAMBA" = 1 ] && { rsetup samba depends; rsetup samba install_shares; } || true
   ok "RetroPie installed"
 }
 
