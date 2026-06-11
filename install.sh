@@ -16,6 +16,7 @@ PORTS_GAMELIST="/home/pi/.emulationstation/gamelists/ports/gamelist.xml"
 PORTS_IMAGES_DIR="$(dirname "$PORTS_GAMELIST")/images"
 ES_SYSTEMS="/etc/emulationstation/es_systems.cfg"
 RUNCOMMAND_DIR="/opt/retropie/configs/all"
+RETROPIE_SETUP="/home/pi/RetroPie-Setup"   # absolute, so this works run as pi OR root
 PYTHON="$PROJECT_DIR/venv/bin/python3"
 
 # ── 1. Project directory & venv ───────────────────────────────────────────────
@@ -102,9 +103,14 @@ sudo systemctl restart ledcontrol.service
 # ── 6. RetroPie Setup menu module ─────────────────────────────────────────────
 echo ""
 echo "6. Installing RetroPie Setup menu module..."
-sudo mkdir -p ~/RetroPie-Setup/scriptmodules/supplementary/
-sudo cp -f "$REPO_DIR/ledcontrol.sh" ~/RetroPie-Setup/scriptmodules/supplementary/
-sudo chmod +x ~/RetroPie-Setup/scriptmodules/supplementary/ledcontrol.sh
+if [ -d "$RETROPIE_SETUP" ]; then
+    sudo mkdir -p "$RETROPIE_SETUP/scriptmodules/supplementary/"
+    sudo cp -f "$REPO_DIR/ledcontrol.sh" "$RETROPIE_SETUP/scriptmodules/supplementary/"
+    sudo chmod +x "$RETROPIE_SETUP/scriptmodules/supplementary/ledcontrol.sh"
+    echo "   Installed ledcontrol scriptmodule"
+else
+    echo "   RetroPie-Setup not found at $RETROPIE_SETUP — skipping scriptmodule (not fatal)"
+fi
 
 # ── 7. RunCommand hooks ───────────────────────────────────────────────────────
 echo ""
@@ -202,7 +208,14 @@ PYEOF
 rm -f "$PORTS_DIR/led-control.sh" "$PORTS_DIR/led-joy2key.py"
 
 # ── 10. Ports system in ES (ensure present) ───────────────────────────────────
-if ! grep -q "<name>ports</name>" "$ES_SYSTEMS" 2>/dev/null; then
+# On a fresh RetroPie, es_systems.cfg isn't generated until EmulationStation
+# first runs — RetroPie then creates it and shows Ports automatically (roms/ports
+# has our RetroLED.sh). So only edit it if it already exists and lacks a ports
+# entry; never create it here (that would fight RetroPie's own generation, and
+# reading a missing file would abort this set -e script).
+if [ ! -f "$ES_SYSTEMS" ]; then
+    echo "   es_systems.cfg not generated yet — RetroPie creates it on first boot; Ports will appear (roms/ports has RetroLED.sh)"
+elif ! grep -q "<name>ports</name>" "$ES_SYSTEMS"; then
     sudo python3 - <<'PYEOF'
 path = '/etc/emulationstation/es_systems.cfg'
 entry = """  <system>
@@ -219,6 +232,8 @@ content = content.replace('</systemList>', entry + '\n</systemList>')
 open(path, 'w').write(content)
 print('   Added Ports system to ' + path)
 PYEOF
+else
+    echo "   Ports system already present in es_systems.cfg"
 fi
 
 # Remove old custom ledcontrol system (migration cleanup)
