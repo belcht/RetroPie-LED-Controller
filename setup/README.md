@@ -1,9 +1,15 @@
 # PiVert / RetroPie-on-Raspberry-Pi-OS box hardening
 
 System-level configuration that makes a Raspberry Pi 5 arcade box reliable for
-RetroPie. These are **manual, documented steps** — `install.sh` (the LED
-software installer) deliberately does **not** apply them. Each file here is the
-exact, proven config from the reference box (PiVert). Copy the ones you need.
+RetroPie. Each file here is the exact, proven config from the reference box
+(PiVert).
+
+> **You usually don't apply these by hand.** `picadeinstall.sh` (repo root)
+> installs them for you: persistent logging, boot tweaks, and the WiFi watchdog
+> on by default; the USB-audio pieces with `--usb-audio`. See
+> [docs/BUILD.md](../docs/BUILD.md). This file documents what each piece does and
+> why, for when you want to understand, tweak, or apply one manually. (`install.sh`
+> — the *LED-only* installer — still deliberately applies none of these.)
 
 Order doesn't matter, but do **persistent logging first** — if anything else
 misbehaves, you'll then have logs that survive a reboot to diagnose it.
@@ -48,6 +54,33 @@ aplay -D default /usr/share/sounds/alsa/Front_Center.wav   # should play
 RetroArch needs no card index — leave `audio_device = ""` so it follows the
 ALSA default.
 
+### 2a. Boot-time audio selector (`select-default-audio.{sh,service}`)
+
+**Why:** the USB sound card is great when it's there, but the JMTek `0c76:1203`
+dongle won't cold-enumerate at boot on the 7″ ROADOM when that display is powered
+through the Pi's USB (full diagnosis in [docs/BUILD-NOTES.md](../docs/BUILD-NOTES.md);
+the real fix is to power that display from GPIO 5V). To make *every* build sound
+right regardless, this oneshot service runs once at boot, **before**
+EmulationStation, and writes `/etc/asound.conf` to whatever's actually available:
+
+- USB card present (`aplay -l` shows `WaveshareUSB`) → default to it (`dmix` so
+  apps share it).
+- Otherwise → default to the **connected HDMI** output (maps DRM `HDMI-A-1` →
+  `vc4hdmi0`, `HDMI-A-2` → `vc4hdmi1`).
+
+So you always get sound — USB when it came up, panel speakers when it didn't.
+
+```bash
+sudo cp setup/select-default-audio.sh      /usr/local/bin/
+sudo cp setup/select-default-audio.service /etc/systemd/system/
+sudo chmod +x /usr/local/bin/select-default-audio.sh
+sudo systemctl enable --now select-default-audio.service
+journalctl -t select-default-audio         # shows which output it picked
+```
+
+> Pairs with the naming rule in §2 — the selector greps for the name
+> `WaveshareUSB`, so install them together (the rule is what creates that name).
+
 ## 3. WiFi reliability on a mesh / eero network
 
 The Pi 5's onboard `brcmfmac` WiFi intermittently **fails its initial
@@ -84,15 +117,20 @@ without a logged-in user:
 sudo nmcli -g 802-11-wireless-security.psk-flags connection show "$CON"   # want 0
 ```
 
-### 3c. `wifi-watchdog` — the safety net (OPT-IN, not in install.sh)
+### 3c. `wifi-watchdog` — the safety net (on by default; self-disabling)
 
-Even with the above, association still misses some boots. The watchdog detects
-"no IP on wlan0" and runs the same recovery you'd do by hand — reconnect →
-bounce radio → reload firmware — until it's online, then idles. On the reference
-box it brings every boot online within ~20–80 s, unattended.
+Even with the above, association still misses some boots. The watchdog runs the
+same recovery you'd do by hand — reconnect → bounce radio → reload firmware —
+until it's online, then idles. On the reference box it brings every boot online
+within ~20–80 s, unattended.
 
-> Edit `CON`/`IFACE` at the top of `wifi-watchdog.sh` if your profile/interface
-> names differ.
+It is **safe to install on every build**, so `picadeinstall` enables it by
+default (skip with `--no-watchdog`). It's **self-disabling**: "online" means a
+global IPv4 on **any** interface (eth0, wlan0, wlan1, …), so on Ethernet or
+healthy WiFi it just idles. It only ever acts when there is **no IP anywhere** —
+and then it cycles through **every** WiFi device by name discovery (onboard +
+any USB adapter), so there's nothing to hardcode or edit. (This is the rewrite —
+no `CON`/`IFACE` to tune.)
 
 ```bash
 sudo install -m 755 setup/wifi-watchdog.sh      /usr/local/bin/wifi-watchdog.sh
@@ -102,6 +140,19 @@ sudo systemctl enable --now wifi-watchdog.service
 journalctl -u wifi-watchdog.service -f           # watch it work
 tail -f /var/log/wifi-watchdog.log
 ```
+
+```bash
+sudo install -m 755 setup/wifi-watchdog.sh      /usr/local/bin/wifi-watchdog.sh
+sudo install -m 644 setup/wifi-watchdog.service  /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now wifi-watchdog.service
+journalctl -u wifi-watchdog.service -f           # watch it work
+tail -f /var/log/wifi-watchdog.log
+```
+
+> Note: `--no-boot-tweaks` and `--no-watchdog` in `picadeinstall` cover 3c–3e
+> together (the watchdog plus disabling `wait-online`/`nmbd`); the manual steps
+> below are the same actions if you'd rather apply them piecemeal.
 
 ### 3d. Don't block boot waiting for WiFi
 
@@ -143,6 +194,6 @@ sudo systemctl disable nmbd        # smbd stays enabled
 - These are **box/OS** concerns, separate from the LED controller software
   (`install.sh`). They live here because every Pi in the fleet needs them, and
   the release/build doc walks through them.
-- The reference box is **PiVert** (RetroPie on Raspberry Pi OS Bookworm, Pi 5).
+- The reference box is **PiVert** (RetroPie on Raspberry Pi OS **Trixie / Debian 13, Lite**, Pi 5).
 - Verify any service/boot fix by **rebooting**, not just restarting — boot is
   the path that actually matters, and it guarantees a clean process table.

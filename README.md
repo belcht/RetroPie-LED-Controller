@@ -79,6 +79,11 @@ Each WS2812B draws up to **60mA at full white**. At the default 80% brightness l
 
 ## Installation — RetroPie
 
+> **Building a whole cabinet from a blank Pi?** Use **`picadeinstall.sh`**, the
+> one-command installer that does RetroPie, this LED software, box hardening, and
+> (optionally) USB audio together — see **[docs/BUILD.md](docs/BUILD.md)**. The
+> steps below are for adding the **LED software only** to an existing RetroPie.
+
 SSH into your Pi:
 
 ```bash
