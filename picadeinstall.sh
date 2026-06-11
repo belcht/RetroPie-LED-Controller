@@ -184,7 +184,8 @@ m_retropie(){
 m_journald(){
   [ "$DO_JOURNALD" = 1 ] || { info "skipped (--no-journald)"; return; }
   step "Persistent logging"
-  install -m 644 "$SETUP_DIR/40-rpi-volatile-storage.conf" /etc/systemd/journald.conf.d/40-rpi-volatile-storage.conf
+  # -D creates /etc/systemd/journald.conf.d/ — it doesn't exist on a fresh image.
+  install -D -m 644 "$SETUP_DIR/40-rpi-volatile-storage.conf" /etc/systemd/journald.conf.d/40-rpi-volatile-storage.conf
   systemctl restart systemd-journald; journalctl --flush 2>/dev/null || true
   ok "journald -> persistent"
 }
