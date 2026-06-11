@@ -279,8 +279,14 @@ the USB sound card unless you want it.
 ### Option A (default, simplest): the monitor's HDMI speakers
 
 Do nothing. If your display has speakers (the 7″/8″/10″ panels in the BOM do),
-HDMI audio just works and `picadeinstall` sets it as the default at boot. This is
-the right choice for most builds.
+`picadeinstall` installs a boot-time **audio selector** on every build that sets
+the default output to **whichever HDMI port the monitor is actually connected
+to** — so it works whether you used HDMI0 or HDMI1 on the Pi. This is the right
+choice for most builds.
+
+> Why this matters: with no selector, ALSA defaults to card 0 (the HDMI port
+> nearest the USB-C power jack). If your cable is in the *other* port, you'd get
+> silence. The selector detects the connected port and avoids that entirely.
 
 ### Option B (recommended upgrade, ~$25): a USB sound card + small amp/speaker
 
@@ -291,10 +297,10 @@ Install it with:
 sudo ./picadeinstall.sh --update --usb-audio   # or include --usb-audio on a full run
 ```
 
-This installs a udev rule that names the card **`WaveshareUSB`** no matter which
-port it's on, raises the USB current cap, and installs a **boot-time audio
-selector** that sets the default to the USB card when present and falls back to
-HDMI when it isn't. So there's always sound either way.
+This adds a udev rule that names the card **`WaveshareUSB`** no matter which port
+it's on and raises the USB current cap. The **boot-time audio selector** (always
+installed — see Option A) then prefers that USB card when it's present and falls
+back to the connected HDMI when it isn't. So there's always sound either way.
 
 ### Option C (advanced): USB sound card on the 7″ ROADOM panel
 

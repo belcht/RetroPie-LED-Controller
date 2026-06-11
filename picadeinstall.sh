@@ -64,7 +64,9 @@ Options:
   --no-journald     skip persistent logging
   --no-boot-tweaks  skip boot-speed tweaks (disable wait-online / nmbd)
   --no-watchdog     skip the WiFi watchdog (it self-disables anyway)
-  --usb-audio       install USB sound-card support (naming + selector + max current)
+  --usb-audio       add USB sound-card support (stable naming + max USB current).
+                    The boot audio auto-selector is installed either way; this
+                    just lets it prefer the USB card when one is plugged in.
   --usbromservice   install RetroPie USB ROM service
   --samba           install RetroPie Samba ROM shares
   -h, --help        show this help
@@ -184,21 +186,31 @@ m_boot_tweaks(){
   systemctl disable nmbd 2>/dev/null && ok "disabled Samba nmbd (90s boot stall)" || info "nmbd not present"
 }
 
+# USB-specific bits (opt-in): stable name for the dongle + raise the USB current
+# cap. Runs BEFORE m_audio so the selector's one-shot run sees the named card.
 m_usb_audio(){
-  [ "$DO_USB_AUDIO" = 1 ] || { info "USB audio not selected — HDMI/monitor speakers will be the default"; return; }
-  step "USB sound-card support (stable naming + auto-select + max current)"
+  [ "$DO_USB_AUDIO" = 1 ] || { info "USB audio not selected — selector will default to the connected HDMI/monitor speakers"; return; }
+  step "USB sound-card support (stable naming + max current)"
   install -m 644 "$SETUP_DIR/90-waveshare-usb-audio.rules" /etc/udev/rules.d/90-waveshare-usb-audio.rules
   udevadm control --reload; udevadm trigger --subsystem-match=sound --action=add 2>/dev/null || true
-  install -m 755 "$SETUP_DIR/select-default-audio.sh" /usr/local/bin/select-default-audio.sh
-  install -m 644 "$SETUP_DIR/select-default-audio.service" /etc/systemd/system/select-default-audio.service
   backup_once "$BOOT_CFG"
   write_managed_block "$BOOT_CFG" "# Allow full USB current for the audio dongle + amp (needs a 5A PSU).
 usb_max_current_enable=1"
-  systemctl daemon-reload; systemctl enable select-default-audio.service >/dev/null 2>&1
-  /usr/local/bin/select-default-audio.sh || true
-  ok "USB audio: stable name 'WaveshareUSB', auto-select USB-or-HDMI at boot"
+  ok "USB audio: stable name 'WaveshareUSB', full USB current enabled"
   warn "If powering the display through the Pi's USB, the dongle may not enumerate at boot."
   info "  -> power the display from the GPIO 5V rail instead. See docs/BUILD.md (USB audio)."
+}
+
+# Audio selector (ALWAYS): at boot, default ALSA to the USB card if present
+# (named by --usb-audio), else the *connected* HDMI output — so there is always
+# sound, on whichever HDMI port the monitor is actually plugged into.
+m_audio(){
+  step "Audio output auto-selector (connected HDMI, or USB card when present)"
+  install -m 755 "$SETUP_DIR/select-default-audio.sh" /usr/local/bin/select-default-audio.sh
+  install -m 644 "$SETUP_DIR/select-default-audio.service" /etc/systemd/system/select-default-audio.service
+  systemctl daemon-reload; systemctl enable select-default-audio.service >/dev/null 2>&1
+  /usr/local/bin/select-default-audio.sh || true
+  ok "audio selector installed + enabled (picks the connected output at boot)"
 }
 
 m_watchdog(){
@@ -255,6 +267,7 @@ run_full(){
   m_journald
   m_boot_tweaks
   m_usb_audio
+  m_audio
   m_watchdog
   m_retropie
   m_leds
@@ -265,6 +278,7 @@ run_full(){
 run_update(){
   step "picadeinstall --update (LED + audio + watchdog only)"
   m_usb_audio
+  m_audio
   m_watchdog
   m_leds
   write_state

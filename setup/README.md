@@ -56,12 +56,15 @@ ALSA default.
 
 ### 2a. Boot-time audio selector (`select-default-audio.{sh,service}`)
 
-**Why:** the USB sound card is great when it's there, but the JMTek `0c76:1203`
-dongle won't cold-enumerate at boot on the 7″ ROADOM when that display is powered
-through the Pi's USB (full diagnosis in [docs/BUILD-NOTES.md](../docs/BUILD-NOTES.md);
-the real fix is to power that display from GPIO 5V). To make *every* build sound
-right regardless, this oneshot service runs once at boot, **before**
-EmulationStation, and writes `/etc/asound.conf` to whatever's actually available:
+**Why:** there's no single "right" default output. The connected HDMI can be
+card 0 **or** card 1 depending on which of the Pi's two HDMI ports you used (ALSA's
+bare default is always card 0, so the *other* port gives silence), and a USB sound
+card — great when present — won't always cold-enumerate (the JMTek `0c76:1203`
+dongle fails to on the 7″ ROADOM when that display is powered through the Pi's USB;
+full diagnosis in [docs/BUILD-NOTES.md](../docs/BUILD-NOTES.md), real fix is GPIO
+5V power). So `picadeinstall` installs this selector on **every** build (not just
+`--usb-audio`). This oneshot service runs once at boot, **before** EmulationStation,
+and writes `/etc/asound.conf` to whatever's actually available:
 
 - USB card present (`aplay -l` shows `WaveshareUSB`) → default to it (`dmix` so
   apps share it).
