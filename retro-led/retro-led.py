@@ -184,15 +184,31 @@ class WSClient:
         if not WS_AVAILABLE:
             return
         try:
-            asyncio.run(self._async_run())
+            asyncio.run(self._reconnect_loop())
         except Exception:
             pass
 
-    async def _async_run(self):
-        try:
-            async with websockets.connect(WS_URL, ping_interval=20,
-                                          open_timeout=WS_TIMEOUT) as ws:
-                self.connected = True
+    async def _reconnect_loop(self):
+        # Reconnect with capped exponential backoff so the UI survives the LED
+        # service being restarted underneath it.
+        backoff = 1.0
+        max_backoff = 10.0
+        while not self._stop:
+            try:
+                await self._connect_once()
+                backoff = 1.0   # clean disconnect — reset for next attempt
+            except Exception:
+                pass
+            if self._stop:
+                break
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 1.5, max_backoff)
+
+    async def _connect_once(self):
+        async with websockets.connect(WS_URL, ping_interval=20,
+                                      open_timeout=WS_TIMEOUT) as ws:
+            self.connected = True
+            try:
                 recv = asyncio.create_task(self._recv(ws))
                 send = asyncio.create_task(self._send_loop(ws))
                 stop = asyncio.create_task(self._watch_stop())
@@ -200,10 +216,8 @@ class WSClient:
                     [recv, send, stop], return_when=asyncio.FIRST_COMPLETED)
                 for t in pending:
                     t.cancel()
-        except Exception:
-            pass
-        finally:
-            self.connected = False
+            finally:
+                self.connected = False
 
     async def _recv(self, ws):
         async for msg in ws:

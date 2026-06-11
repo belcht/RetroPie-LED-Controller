@@ -1,22 +1,52 @@
 #!/bin/bash
 # Batocera service script for the WS2812 LED Controller.
 # Installed to /userdata/system/services/ledcontrol
-# Managed via: batocera-services enable|disable|start|stop ledcontrol
+# Managed via: batocera-services enable|disable|start|stop|status ledcontrol
 
 SCRIPT="/userdata/system/LEDControl/LEDControl.py"
+WS_CMD="/userdata/system/LEDControl/led-ws-cmd.py"
+CONFIG="/userdata/system/ledcontrol.toml"
 PID_FILE="/tmp/ledcontrol.pid"
+
+is_running() {
+    [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+}
 
 case "$1" in
     start)
-        python3 "$SCRIPT" > /dev/null 2>&1 &
+        if is_running; then
+            echo "ledcontrol already running (PID $(cat "$PID_FILE"))"
+            exit 0
+        fi
+        # Kill any stragglers not tracked by the pid file (e.g. from a crash)
+        pkill -f "$SCRIPT" 2>/dev/null && sleep 0.3
+        rm -f "$PID_FILE"
+        python3 "$SCRIPT" --config "$CONFIG" > /dev/null 2>&1 &
         echo $! > "$PID_FILE"
         ;;
     stop)
+        # Ask the live service to blank the LEDs via WebSocket, then kill it.
+        # This avoids spawning a second Python process that races on port 8765.
+        python3 "$WS_CMD" --animate off --config "$CONFIG" 2>/dev/null || true
+        sleep 0.2
         if [ -f "$PID_FILE" ]; then
-            kill "$(cat $PID_FILE)" 2>/dev/null || true
+            kill "$(cat "$PID_FILE")" 2>/dev/null || true
             sleep 0.3
             rm -f "$PID_FILE"
         fi
-        python3 "$SCRIPT" --animate off --config /userdata/system/ledcontrol.toml || true
+        pkill -f "$SCRIPT" 2>/dev/null || true
+        ;;
+    status)
+        if is_running; then
+            echo "running (PID $(cat "$PID_FILE"))"
+            exit 0
+        else
+            echo "stopped"
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status}"
+        exit 1
         ;;
 esac

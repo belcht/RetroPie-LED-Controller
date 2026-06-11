@@ -248,6 +248,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='RetroLED mock LED service')
     parser.add_argument('--leds', type=int, default=14, help='Number of LEDs to simulate')
     args = parser.parse_args()
+    if args.leds < 3:
+        # frame_cylon and frame_centerpulse divide by quantities derived from
+        # num_leds; below 3 the maths collapses. Real strips are never this small.
+        print(f"--leds must be >= 3 (got {args.leds})", file=sys.stderr)
+        sys.exit(1)
     num_leds = args.leds
     try:
         asyncio.run(main())
