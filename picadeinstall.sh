@@ -100,7 +100,7 @@ done
 
 # ───────────────────────── state / drift ─────────────────────────
 cur_kernel(){ uname -r; }
-cur_retropie(){ [ -d "$TARGET_HOME/RetroPie-Setup" ] && git -C "$TARGET_HOME/RetroPie-Setup" rev-parse --short HEAD 2>/dev/null || echo "none"; }
+cur_retropie(){ local d="$TARGET_HOME/RetroPie-Setup"; [ -d "$d" ] && git -C "$d" -c safe.directory="$d" rev-parse --short HEAD 2>/dev/null || echo "none"; }
 
 read_state(){ [ -f "$STATE_FILE" ] && cat "$STATE_FILE" || true; }
 write_state(){
@@ -153,21 +153,31 @@ m_upgrade(){
   ok "OS up to date"
 }
 
+# Invoke RetroPie-Setup the way it expects: as root, with SUDO_USER pointing at
+# the login user so it installs games/configs to that user's home. HOME=/root so
+# any `git config --global` it runs lands somewhere writable.
+rsetup(){ HOME=/root SUDO_USER="$TARGET_USER" "$TARGET_HOME/RetroPie-Setup/retropie_setup.sh" "$@"; }
+
 m_retropie(){
   [ "$DO_RETROPIE" = 1 ] || { info "skipped (--no-retropie)"; return; }
   step "Installing RetroPie (Core + Main)"
   apt-get install -y git lsb-release
-  if [ ! -d "$TARGET_HOME/RetroPie-Setup" ]; then
-    sudo -u "$TARGET_USER" git clone --depth=1 https://github.com/RetroPie/RetroPie-Setup.git "$TARGET_HOME/RetroPie-Setup"
+  local rps="$TARGET_HOME/RetroPie-Setup"
+  # Keep the repo ROOT-owned: we run retropie_setup.sh as root, and modern git
+  # aborts ("dubious ownership") on a repo owned by a different user. RetroPie
+  # still installs for $TARGET_USER — it uses SUDO_USER, not the repo's owner.
+  if [ ! -d "$rps" ]; then
+    git clone --depth=1 https://github.com/RetroPie/RetroPie-Setup.git "$rps"
   else
+    chown -R root:root "$rps" 2>/dev/null || true   # heal a clone left by an earlier run
     info "RetroPie-Setup already present — updating"
-    sudo -u "$TARGET_USER" git -C "$TARGET_HOME/RetroPie-Setup" pull --ff-only || true
+    git -C "$rps" pull --ff-only || true
   fi
-  chmod +x "$TARGET_HOME/RetroPie-Setup/retropie_setup.sh"
-  "$TARGET_HOME/RetroPie-Setup/retropie_setup.sh" setup basic_install
-  [ "$DO_AUTOSTART" = 1 ] && { "$TARGET_HOME/RetroPie-Setup/retropie_setup.sh" autostart enable; ok "boot-to-EmulationStation enabled"; }
-  [ "$DO_USBROMSERVICE" = 1 ] && "$TARGET_HOME/RetroPie-Setup/retropie_setup.sh" usbromservice install || true
-  [ "$DO_SAMBA" = 1 ] && "$TARGET_HOME/RetroPie-Setup/retropie_setup.sh" samba install || true
+  chmod +x "$rps/retropie_setup.sh"
+  rsetup setup basic_install
+  [ "$DO_AUTOSTART" = 1 ] && { rsetup autostart enable; ok "boot-to-EmulationStation enabled"; }
+  [ "$DO_USBROMSERVICE" = 1 ] && rsetup usbromservice install || true
+  [ "$DO_SAMBA" = 1 ] && rsetup samba install || true
   ok "RetroPie installed"
 }
 
