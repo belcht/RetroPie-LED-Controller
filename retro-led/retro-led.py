@@ -512,11 +512,26 @@ class RetroLED:
         try:
             if PLATFORM == 'batocera':
                 base = Path('/userdata/roms')
+                # metadata that doesn't count as "this system has games"
+                META = {'images', 'manuals', 'videos', 'media', 'downloaded_images',
+                        'downloaded_media', 'box', 'wheel', 'marquee', 'screenshots',
+                        'thumbnails', 'support', 'saves'}
+                def _has_games(d):
+                    try:
+                        for f in d.iterdir():
+                            nm = f.name
+                            if nm.startswith('.'):
+                                continue
+                            if f.is_dir():
+                                if nm.lower() not in META:
+                                    return True   # a game *folder* (psx, amiga, ...)
+                            elif not _re.search(r'\.(xml|txt|cfg|db)$', nm, _re.I):
+                                return True       # a game *file* (zip, chd, iso, ...)
+                    except Exception:
+                        pass
+                    return False
                 if base.is_dir():
-                    for d in base.iterdir():
-                        if d.is_dir() and any(f.is_file() and not f.name.startswith('.')
-                                              for f in d.iterdir()):
-                            names.append(d.name)
+                    names = [d.name for d in base.iterdir() if d.is_dir() and _has_games(d)]
             else:
                 cfg = Path('/etc/emulationstation/es_systems.cfg')
                 if cfg.exists():
