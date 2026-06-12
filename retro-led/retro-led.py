@@ -326,6 +326,8 @@ class RetroLED:
     MAIN         = 'main'
     ANIM_SELECT  = 'anim_select'
     COLOR_SELECT = 'color_select'
+    SYSTEM_LIST  = 'system_list'   # browse per-system LED overrides
+    SYSTEM_MENU  = 'system_menu'   # edit one system (animation / color / default)
 
     # Boot sequence timing (seconds)
     BOOT_DURATION   = 1.0   # flashing ROM screens
@@ -347,8 +349,17 @@ class RetroLED:
         ('color',     'SET COLOR'),
         ('brightness','BRIGHTNESS'),
         ('flip',      'FLIP STRIP'),
+        ('persystem', 'PER-SYSTEM'),
         ('off',       'LEDS OFF'),
         ('exit',      'EXIT'),
+    ]
+
+    # Sub-menu shown for a single system in the per-system editor.
+    SYSTEM_MENU_ITEMS = [
+        ('animation', 'SET ANIMATION'),
+        ('color',     'SET COLOR'),
+        ('default',   'USE DEFAULT'),
+        ('back',      'BACK'),
     ]
 
     def __init__(self):
@@ -388,6 +399,15 @@ class RetroLED:
         self.color_idx   = self._color_index(self.cur_color)
         self.scroll_off  = 0
         self.error_msg   = ''
+
+        # Per-system editor state
+        self.systems       = self._load_systems()                       # list of system names
+        self.sys_overrides = dict(self.cfg.get('systems', {}))          # name -> {animate,color}
+        self.system_idx    = 0
+        self.sysmenu_idx   = 0
+        self.edit_system   = None    # set while editing a system (scopes the pickers)
+        self.sys_base_animate = self.cur_animate   # system's saved look (for picker cancel)
+        self.sys_base_color   = self.cur_color
 
         # Boot sequence
         self._boot_start       = time.monotonic()
@@ -480,6 +500,43 @@ class RetroLED:
             if k == key: return i
         return 0
 
+    def _load_systems(self):
+        """List the systems the box knows about, for the per-system editor.
+
+        RetroPie/desktop: the <name> entries in es_systems.cfg (what EmulationStation
+        shows). Batocera: the roms subdirs that actually contain games. Falls back to
+        whatever systems already have an override in the TOML.
+        """
+        import re as _re
+        names = []
+        try:
+            if PLATFORM == 'batocera':
+                base = Path('/userdata/roms')
+                if base.is_dir():
+                    for d in base.iterdir():
+                        if d.is_dir() and any(f.is_file() and not f.name.startswith('.')
+                                              for f in d.iterdir()):
+                            names.append(d.name)
+            else:
+                cfg = Path('/etc/emulationstation/es_systems.cfg')
+                if cfg.exists():
+                    names = _re.findall(r'<name>([^<]+)</name>', cfg.read_text())
+        except Exception:
+            names = []
+        names = [n for n in names if n not in ('retropie',)]
+        if not names:  # dev box / nothing found — fall back to configured overrides
+            names = [k for k in self.cfg.get('systems', {}) if k != 'default']
+        return sorted(set(names))
+
+    def _system_summary(self, name: str) -> str:
+        """Right-hand label for a system row: its override, or '(default)'."""
+        ov = self.sys_overrides.get(name)
+        if not isinstance(ov, dict):
+            return '(default)'
+        a = next((lbl for k, lbl in ANIMATIONS if k == ov.get('animate')), ov.get('animate', '?'))
+        c = ov.get('color', '')
+        return f'{a} / {c.upper()}' if c else str(a)
+
     def _save_setting(self, section: str, key: str, value: str):
         """Write a single key to the TOML config file."""
         try:
@@ -501,13 +558,16 @@ class RetroLED:
         except Exception as e:
             print(f"Config save failed: {e}", file=sys.stderr)
 
-    def _send_preview(self, animate: str, color: str, save: bool = False):
+    def _send_preview(self, animate: str, color: str, save: bool = False,
+                      system: str = None, clear: bool = False):
         self.ws.send({
             'cmd':        'set',
             'animate':    animate,
             'color':      color,
             'brightness': self.brightness,
             'save':       save,
+            'system':     system,   # when set + save: write [systems].<system>
+            'clear':      clear,    # when set + save: remove that override
         })
 
     def _max_visible(self) -> int:
@@ -564,6 +624,8 @@ class RetroLED:
         elif self.state == self.MAIN:         self._input_main(up, down, left, right, sel, back)
         elif self.state == self.ANIM_SELECT:  self._input_anim(up, down, sel, back)
         elif self.state == self.COLOR_SELECT: self._input_color(up, down, sel, back)
+        elif self.state == self.SYSTEM_LIST:  self._input_system_list(up, down, sel, back)
+        elif self.state == self.SYSTEM_MENU:  self._input_system_menu(up, down, sel, back)
         elif self.state == self.ERROR:
             if sel or back: self._quit()
 
@@ -597,6 +659,12 @@ class RetroLED:
                 self.flip_strip = not self.flip_strip
                 self._save_setting('general', 'flip_strip', str(self.flip_strip).lower())
                 self._play('save')
+            elif key == 'persystem':
+                self.system_idx = 0
+                self.scroll_off = 0
+                self._clamp_scroll(self.system_idx, max(1, len(self.systems)))
+                self.state = self.SYSTEM_LIST
+                self._play('select')
             elif key == 'off':
                 self.preview_animate = 'off'
                 self._send_preview('off', self.preview_color, save=True)
@@ -623,14 +691,21 @@ class RetroLED:
             self._send_preview(self.preview_animate, self.preview_color)
             self._play('nav')
         if sel:
-            self.cur_animate = self.preview_animate
-            self._send_preview(self.preview_animate, self.preview_color, save=True)
-            self.state = self.MAIN
+            if self.edit_system:
+                self._commit_system()
+            else:
+                self.cur_animate = self.preview_animate
+                self._send_preview(self.preview_animate, self.preview_color, save=True)
+                self.state = self.MAIN
             self._play('save')
         if back:
-            self.preview_animate = self.cur_animate
-            self._send_preview(self.cur_animate, self.cur_color)
-            self.state = self.MAIN
+            if self.edit_system:
+                self._revert_system_preview()
+                self.state = self.SYSTEM_MENU
+            else:
+                self.preview_animate = self.cur_animate
+                self._send_preview(self.cur_animate, self.cur_color)
+                self.state = self.MAIN
             self._play('back')
 
     def _input_color(self, up, down, sel, back):
@@ -648,14 +723,112 @@ class RetroLED:
             self._send_preview(self.preview_animate, self.preview_color)
             self._play('nav')
         if sel:
-            self.cur_color = self.preview_color
-            self._send_preview(self.preview_animate, self.preview_color, save=True)
-            self.state = self.MAIN
+            if self.edit_system:
+                self._commit_system()
+            else:
+                self.cur_color = self.preview_color
+                self._send_preview(self.preview_animate, self.preview_color, save=True)
+                self.state = self.MAIN
             self._play('save')
         if back:
-            self.preview_color = self.cur_color
-            self._send_preview(self.cur_animate, self.cur_color)
+            if self.edit_system:
+                self._revert_system_preview()
+                self.state = self.SYSTEM_MENU
+            else:
+                self.preview_color = self.cur_color
+                self._send_preview(self.cur_animate, self.cur_color)
+                self.state = self.MAIN
+            self._play('back')
+
+    # ── Per-system editor ─────────────────────────
+
+    def _system_default_pair(self):
+        """The (animate, color) a system falls back to: its [systems].default, else global."""
+        d = self.sys_overrides.get('default')
+        if isinstance(d, dict):
+            return d.get('animate', self.cur_animate), d.get('color', self.cur_color)
+        return self.cur_animate, self.cur_color
+
+    def _enter_system(self, name):
+        self.edit_system = name
+        ov = self.sys_overrides.get(name)
+        if isinstance(ov, dict):
+            self.preview_animate = ov.get('animate', self.cur_animate)
+            self.preview_color   = ov.get('color', self.cur_color)
+        else:
+            self.preview_animate, self.preview_color = self._system_default_pair()
+        self.sys_base_animate = self.preview_animate
+        self.sys_base_color   = self.preview_color
+        self.sysmenu_idx      = 0
+        self._send_preview(self.preview_animate, self.preview_color)  # show this system's look
+        self.state = self.SYSTEM_MENU
+
+    def _commit_system(self):
+        """Save the working animate/color as this system's override and return to its menu."""
+        self.sys_overrides[self.edit_system] = {
+            'animate': self.preview_animate, 'color': self.preview_color}
+        self.sys_base_animate = self.preview_animate
+        self.sys_base_color   = self.preview_color
+        self._send_preview(self.preview_animate, self.preview_color,
+                           save=True, system=self.edit_system)
+        self.state = self.SYSTEM_MENU
+
+    def _revert_system_preview(self):
+        self.preview_animate = self.sys_base_animate
+        self.preview_color   = self.sys_base_color
+        self._send_preview(self.preview_animate, self.preview_color)
+
+    def _input_system_list(self, up, down, sel, back):
+        n = max(1, len(self.systems))
+        if up:   self.system_idx = (self.system_idx - 1) % n; self._clamp_scroll(self.system_idx, n); self._play('nav')
+        if down: self.system_idx = (self.system_idx + 1) % n; self._clamp_scroll(self.system_idx, n); self._play('nav')
+        if sel and self.systems:
+            self.scroll_off = 0
+            self._enter_system(self.systems[self.system_idx])
+            self._play('select')
+        if back:
+            self.edit_system = None
+            self.preview_animate, self.preview_color = self.cur_animate, self.cur_color
+            self._send_preview(self.cur_animate, self.cur_color)  # restore global look
+            self.scroll_off = 0
+            self._clamp_scroll(self.main_idx, len(self.MAIN_ITEMS))
             self.state = self.MAIN
+            self._play('back')
+
+    def _input_system_menu(self, up, down, sel, back):
+        n = len(self.SYSTEM_MENU_ITEMS)
+        if up:   self.sysmenu_idx = (self.sysmenu_idx - 1) % n; self._play('nav')
+        if down: self.sysmenu_idx = (self.sysmenu_idx + 1) % n; self._play('nav')
+        key = self.SYSTEM_MENU_ITEMS[self.sysmenu_idx][0]
+        if sel:
+            if key == 'animation':
+                self.anim_idx   = self._anim_index(self.preview_animate)
+                self.scroll_off = 0
+                self._clamp_scroll(self.anim_idx, len(ANIMATIONS))
+                self.state = self.ANIM_SELECT
+                self._play('select')
+            elif key == 'color':
+                self.color_idx  = self._color_index(self.preview_color)
+                self.scroll_off = 0
+                self._clamp_scroll(self.color_idx, len(COLORS))
+                self.state = self.COLOR_SELECT
+                self._play('select')
+            elif key == 'default':
+                # remove this system's override → it follows the default
+                self.sys_overrides.pop(self.edit_system, None)
+                self.preview_animate, self.preview_color = self._system_default_pair()
+                self._send_preview(self.preview_animate, self.preview_color,
+                                   save=True, system=self.edit_system, clear=True)
+                self._play('save')
+                self.edit_system = None
+                self.state = self.SYSTEM_LIST
+            elif key == 'back':
+                self.edit_system = None
+                self.state = self.SYSTEM_LIST
+                self._play('back')
+        if back:
+            self.edit_system = None
+            self.state = self.SYSTEM_LIST
             self._play('back')
 
     # ── Update ────────────────────────────────────
@@ -901,6 +1074,29 @@ class RetroLED:
                 color_dots  = [rgb for _, _, rgb in COLORS],
                 item_colors = [rgb for _, _, rgb in COLORS],
             )
+        elif self.state == self.SYSTEM_LIST:
+            draw_text(self.screen, 'PER-SYSTEM LEDS', H // 42, GOLD,
+                      W // 2, self.menu_top - int(H * 0.025))
+            if self.systems:
+                items = [(s.upper(), '') for s in self.systems]
+                rvals = [self._system_summary(s) for s in self.systems]
+            else:
+                items, rvals = [('(NO SYSTEMS FOUND)', '')], ['']
+            self._draw_list(items=items, sel_idx=self.system_idx, top=self.menu_top,
+                            height=menu_h, right_vals=rvals)
+        elif self.state == self.SYSTEM_MENU:
+            draw_text(self.screen, (self.edit_system or '').upper(), H // 42, GOLD,
+                      W // 2, self.menu_top - int(H * 0.025))
+            anim_lbl = next((lbl for k, lbl in ANIMATIONS if k == self.preview_animate),
+                            self.preview_animate)
+            self._draw_list(
+                items      = [(lbl, '') for _, lbl in self.SYSTEM_MENU_ITEMS],
+                sel_idx    = self.sysmenu_idx,
+                top        = self.menu_top,
+                height     = menu_h,
+                show_all   = True,
+                right_vals = [anim_lbl, self.preview_color.upper(), '', ''],
+            )
 
         # ── Controls hint ──
         draw_text(self.screen, 'UP/DN NAVIGATE   A SELECT   B BACK',
@@ -966,7 +1162,9 @@ class RetroLED:
         anim_lbl  = next((lbl for k, lbl in ANIMATIONS    if k == self.cur_animate), 'KITT SCANNER')
         color_lbl = next((lbl for k, lbl, _ in COLORS     if k == self.cur_color),   'RED')
         flip_lbl  = 'ON' if self.flip_strip else 'OFF'
-        return [anim_lbl, color_lbl, f'{int(self.brightness * 100)}%', flip_lbl, '', '']
+        # one value per MAIN_ITEMS row: animation, color, brightness, flip, persystem, off, exit
+        return [anim_lbl, color_lbl, f'{int(self.brightness * 100)}%', flip_lbl,
+                f'{len(self.systems)} ▸', '', '']
 
     def _draw_list(self, items, sel_idx, top, height,
                    show_all=False, right_vals=None, color_dots=None, item_colors=None, font_sz=None):

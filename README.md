@@ -158,10 +158,20 @@ On launch you'll see an arcade BIOS boot sequence, then a splash screen. Press *
 | **SET COLOR** | Select to open list — up/down to browse (live preview), Select to save |
 | **BRIGHTNESS** | Left/Right to adjust in 5% steps |
 | **FLIP STRIP** | Select to toggle — reverses virtual display to match physical installation direction |
+| **PER-SYSTEM** | Select to open the per-system editor (see below) |
 | **LEDS OFF** | Select to turn off immediately |
 | **EXIT** | Returns to EmulationStation |
 
-Scrolling through animations and colors shows a live preview on your physical LEDs. Only **Select** saves the choice.
+Scrolling through animations and colors shows a live preview on your physical LEDs. Only **Select** saves the choice. **SET ANIMATION**, **SET COLOR**, and **BRIGHTNESS** set the **global default** (the `[general]` section of `ledcontrol.toml`).
+
+### Per-system animations (in the UI)
+
+**PER-SYSTEM** lists every system EmulationStation knows about (from `es_systems.cfg`). Select a system to give it its own animation + color when you launch its games:
+
+- **SET ANIMATION** / **SET COLOR** — same pickers as the main menu, but saved to just that system (`[systems].<name>`), with a live preview as you browse.
+- **USE DEFAULT** — removes that system's override so it follows the global default again.
+
+Each row shows the system's current setting, or `(default)` if it has none. Saved choices write to `[systems]` in `ledcontrol.toml` (you can still hand-edit that section — see [Configuration](#configuration)); the running service picks them up immediately and the per-game LED reaction uses them on the next game launch.
 
 ### Joystick buttons
 
