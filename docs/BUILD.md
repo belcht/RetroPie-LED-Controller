@@ -146,12 +146,16 @@ passwordless login is set up.
 
 ---
 
-## Step 3 — (Optional) Passwordless `sudo`
+## Step 3 — Passwordless `sudo`
+
+> **Required if you'll run the installer unattended or over SSH** (e.g. driving it
+> from another machine, or any detached/scripted run) — a background install can't
+> stop to type a password. If you'll run the installer **by hand at the cabinet**,
+> this is optional: `sudo ./picadeinstall.sh` just prompts for your password once.
 
 On a fresh **Desktop** image, the user you created needs to type a password for
-`sudo`. That's fine if you'll always run admin commands by hand, but it blocks
-unattended/remote management. (The RetroPie SD image and the Lite-based setups
-already have passwordless `sudo`; the Desktop image just doesn't.)
+`sudo`. (The RetroPie SD image and the Lite-based setups already have passwordless
+`sudo`; the Desktop image just doesn't.)
 
 To enable it, run these **two commands** on the Pi (you'll enter your password
 once, for the first one):
@@ -163,8 +167,7 @@ echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/010-nopasswd-$USE
 sudo chmod 0440 /etc/sudoers.d/010-nopasswd-$USER
 ```
 
-After this, `sudo` no longer prompts for a password. **Skip this** if you prefer
-to keep the password prompt for safety.
+After this, `sudo` no longer prompts for a password.
 
 ---
 
@@ -233,6 +236,9 @@ git clone https://github.com/belcht/RetroPie-LED-Controller.git
 cd RetroPie-LED-Controller
 sudo ./picadeinstall.sh
 ```
+
+> Needs `sudo`. Running it by hand prompts for your password once; running it
+> **unattended or over SSH requires passwordless `sudo`** (see Step 3).
 
 It prompts for the one thing that's truly per-cabinet — **how many LEDs** are in
 your strip — and otherwise uses sensible defaults. On a fresh box this does the
