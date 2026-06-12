@@ -31,6 +31,7 @@ DO_RETROPIE=1
 DO_AUTOSTART=1
 DO_JOURNALD=1
 DO_BOOT_TWEAKS=1
+DO_USB_POWER=1         # raise USB current budget (default on; --no-usb-power to skip)
 DO_WATCHDOG=1
 DO_USB_AUDIO=0         # opt-in
 DO_USBROMSERVICE=0     # opt-in
@@ -63,6 +64,7 @@ Options:
   --no-autostart    don't set boot-to-EmulationStation
   --no-journald     skip persistent logging
   --no-boot-tweaks  skip boot-speed tweaks (disable wait-online / nmbd)
+  --no-usb-power    don't set usb_max_current_enable=1 (default sets it; needs 5A/27W PSU)
   --no-watchdog     skip the WiFi watchdog (it self-disables anyway)
   --usb-audio       add USB sound-card support (stable naming + max USB current).
                     The boot audio auto-selector is installed either way; this
@@ -85,6 +87,7 @@ while [ $# -gt 0 ]; do
     --no-autostart) DO_AUTOSTART=0 ;;
     --no-journald) DO_JOURNALD=0 ;;
     --no-boot-tweaks) DO_BOOT_TWEAKS=0 ;;
+    --no-usb-power) DO_USB_POWER=0 ;;
     --no-watchdog) DO_WATCHDOG=0 ;;
     --usb-audio) DO_USB_AUDIO=1 ;;
     --usbromservice) DO_USBROMSERVICE=1 ;;
@@ -197,17 +200,27 @@ m_boot_tweaks(){
   systemctl disable nmbd 2>/dev/null && ok "disabled Samba nmbd (90s boot stall)" || info "nmbd not present"
 }
 
-# USB-specific bits (opt-in): stable name for the dongle + raise the USB current
-# cap. Runs BEFORE m_audio so the selector's one-shot run sees the named card.
+# Raise the Pi 5 USB current budget (default on). Useful for ANY USB-powered
+# device — monitor, touchscreen, joystick, case extension, audio dongle — and
+# harmless on the official 27W PSU. Opt out with --no-usb-power.
+m_usb_power(){
+  [ "$DO_USB_POWER" = 1 ] || { info "skipped (--no-usb-power)"; return; }
+  step "USB power budget (usb_max_current_enable=1)"
+  backup_once "$BOOT_CFG"
+  write_managed_block "$BOOT_CFG" "# Raise USB current budget for downstream devices (needs a 5A / 27W PSU).
+usb_max_current_enable=1"
+  ok "usb_max_current_enable=1 set in $(basename "$BOOT_CFG")"
+}
+
+# USB-audio-specific bits (opt-in): stable name for the dongle. The USB current
+# cap is handled by m_usb_power (default on). Runs BEFORE m_audio so the
+# selector's one-shot run sees the named card.
 m_usb_audio(){
   [ "$DO_USB_AUDIO" = 1 ] || { info "USB audio not selected — selector will default to the connected HDMI/monitor speakers"; return; }
-  step "USB sound-card support (stable naming + max current)"
+  step "USB sound-card support (stable naming)"
   install -m 644 "$SETUP_DIR/90-waveshare-usb-audio.rules" /etc/udev/rules.d/90-waveshare-usb-audio.rules
   udevadm control --reload; udevadm trigger --subsystem-match=sound --action=add 2>/dev/null || true
-  backup_once "$BOOT_CFG"
-  write_managed_block "$BOOT_CFG" "# Allow full USB current for the audio dongle + amp (needs a 5A PSU).
-usb_max_current_enable=1"
-  ok "USB audio: stable name 'WaveshareUSB', full USB current enabled"
+  ok "USB audio: stable name 'WaveshareUSB'"
   warn "If powering the display through the Pi's USB, the dongle may not enumerate at boot."
   info "  -> power the display from the GPIO 5V rail instead. See docs/BUILD.md (USB audio)."
 }
@@ -277,6 +290,7 @@ run_full(){
   m_upgrade
   m_journald
   m_boot_tweaks
+  m_usb_power
   m_usb_audio
   m_audio
   m_watchdog

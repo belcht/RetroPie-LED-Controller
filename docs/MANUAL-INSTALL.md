@@ -85,6 +85,19 @@ the *why*, in **[../setup/README.md](../setup/README.md)** — do them in this o
 
 Each is one or two `cp`/`systemctl` commands; setup/README has them verbatim.
 
+### B1. USB power budget (set by default)
+
+Raise the Pi 5's USB current budget so USB-powered devices (monitor, touchscreen,
+joystick, case extension, audio dongle) have headroom. The installer sets this on
+every build; by hand it's one line in `config.txt` (then reboot):
+
+```bash
+echo "usb_max_current_enable=1" | sudo tee -a /boot/firmware/config.txt
+```
+
+Needs a 5 A / 27 W PSU (the official Pi 5 supply). On an underpowered supply, skip
+it (`--no-usb-power`).
+
 ---
 
 ## C. Audio by hand
