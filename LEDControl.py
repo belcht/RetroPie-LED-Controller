@@ -76,11 +76,14 @@ WS_PORT = 8765
 
 class AnimationSwitch(Exception):
     """Raised by check_commands() to switch animation mid-loop."""
-    def __init__(self, animate: str, color: str, save: bool = False, brightness: float = None):
+    def __init__(self, animate: str, color: str, save: bool = False, brightness: float = None,
+                 system: str = None, clear: bool = False):
         self.animate = animate
         self.color = color
         self.save = save
         self.brightness = brightness
+        self.system = system    # if set, a save targets [systems].<system> not [general]
+        self.clear = clear      # with system+save: remove that override (revert to default)
 
 def broadcast_pixels(strip):
     """Capture current strip state and queue for WebSocket broadcast."""
@@ -110,25 +113,43 @@ def check_commands():
             cmd.get('color', 'white'),
             cmd.get('save', False),
             cmd.get('brightness', None),
+            cmd.get('system', None),
+            cmd.get('clear', False),
         )
 
+def _update(filepath, section, key, value):
+    """Surgically set `key = value` inside [section] (add/replace; create section if needed).
+    Preserves user comments and other keys — do not replace with a full TOML dump."""
+    with open(filepath, 'r') as f:
+        content = f.read()
+    section_re = re.compile(r'(\[' + re.escape(section) + r'\].*?)(?=\n\[|\Z)', re.DOTALL)
+    key_re = re.compile(r'^' + re.escape(key) + r'\s*=.*$', re.MULTILINE)
+    match = section_re.search(content)
+    if match:
+        sec = match.group(1)
+        new_sec = key_re.sub(lambda _: f'{key} = {value}', sec) if key_re.search(sec) \
+                  else sec.rstrip('\n') + f'\n{key} = {value}'
+        content = content[:match.start()] + new_sec + content[match.end():]
+    else:
+        content = content.rstrip('\n') + f'\n\n[{section}]\n{key} = {value}\n'
+    with open(filepath, 'w') as f:
+        f.write(content)
+
+def _remove_key(filepath, section, key):
+    """Delete the `key = ...` line inside [section] (no-op if absent)."""
+    with open(filepath, 'r') as f:
+        content = f.read()
+    section_re = re.compile(r'(\[' + re.escape(section) + r'\].*?)(?=\n\[|\Z)', re.DOTALL)
+    match = section_re.search(content)
+    if not match:
+        return
+    sec = re.sub(r'^' + re.escape(key) + r'\s*=.*\n?', '', match.group(1), flags=re.MULTILINE)
+    content = content[:match.start()] + sec + content[match.end():]
+    with open(filepath, 'w') as f:
+        f.write(content)
+
 def _save_config(config_path: Path, animate: str, color: str, brightness: float = None):
-    """Write animation/color/brightness back to the TOML config file."""
-    def _update(filepath, section, key, value):
-        with open(filepath, 'r') as f:
-            content = f.read()
-        section_re = re.compile(r'(\[' + re.escape(section) + r'\].*?)(?=\n\[|\Z)', re.DOTALL)
-        key_re = re.compile(r'^' + re.escape(key) + r'\s*=.*$', re.MULTILINE)
-        match = section_re.search(content)
-        if match:
-            sec = match.group(1)
-            new_sec = key_re.sub(f'{key} = {value}', sec) if key_re.search(sec) \
-                      else sec.rstrip('\n') + f'\n{key} = {value}'
-            content = content[:match.start()] + new_sec + content[match.end():]
-        else:
-            content = content.rstrip('\n') + f'\n\n[{section}]\n{key} = {value}\n'
-        with open(filepath, 'w') as f:
-            f.write(content)
+    """Write the GLOBAL default animation/color/brightness back to [general]."""
     try:
         _update(config_path, 'general', 'default_animate', f'"{animate}"')
         _update(config_path, 'general', 'default_color', f'"{color}"')
@@ -138,6 +159,22 @@ def _save_config(config_path: Path, animate: str, color: str, brightness: float 
               (f" brightness={brightness}" if brightness is not None else ""))
     except Exception as e:
         print(f"Failed to save config: {e}", file=sys.stderr)
+
+def _save_system(config_path: Path, system: str, animate: str, color: str):
+    """Write a per-system override: [systems].<system> = { animate, color }."""
+    try:
+        _update(config_path, 'systems', system, f'{{ animate = "{animate}", color = "{color}" }}')
+        print(f"Config saved: systems.{system} = {{ animate={animate} color={color} }}")
+    except Exception as e:
+        print(f"Failed to save system config: {e}", file=sys.stderr)
+
+def _clear_system(config_path: Path, system: str):
+    """Remove a per-system override so the system falls back to the default."""
+    try:
+        _remove_key(config_path, 'systems', system)
+        print(f"Config cleared: systems.{system} (now uses default)")
+    except Exception as e:
+        print(f"Failed to clear system config: {e}", file=sys.stderr)
 
 if WS_ENABLED:
     async def _ws_handler(websocket):
@@ -718,7 +755,9 @@ def main():
                         check_commands()
 
             except AnimationSwitch as sw:
-                print(f"Switch → animate={sw.animate!r} color={sw.color!r} save={sw.save}")
+                print(f"Switch → animate={sw.animate!r} color={sw.color!r} save={sw.save}"
+                      + (f" system={sw.system!r}" if sw.system else "")
+                      + (" clear" if sw.clear else ""))
                 animate = sw.animate
                 color_name = sw.color
                 if sw.brightness is not None:
@@ -729,8 +768,12 @@ def main():
                     color = Color(255, 255, 255)
                     color_name = 'white'
                 if sw.save:
-                    _save_config(args.config, animate, color_name,
-                                 sw.brightness if sw.brightness is not None else None)
+                    if sw.system:
+                        _clear_system(args.config, sw.system) if sw.clear \
+                            else _save_system(args.config, sw.system, animate, color_name)
+                    else:
+                        _save_config(args.config, animate, color_name,
+                                     sw.brightness if sw.brightness is not None else None)
 
     except (KeyboardInterrupt, SystemExit, _Shutdown):
         print("\nStopped")
