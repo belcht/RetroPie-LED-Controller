@@ -220,7 +220,13 @@ sudo rpi-eeprom-update   # CURRENT firmware date should be recent
 ## Step 5 — Install everything with `picadeinstall`
 
 From here, one script installs RetroPie, the LED controller, the box hardening,
-and (optionally) USB audio. Clone the repo and run it:
+and (optionally) USB audio.
+
+> **Prefer to do every step by hand?** See **[MANUAL-INSTALL.md](MANUAL-INSTALL.md)**
+> — it walks through the same RetroPie install, hardening, audio, and LED setup
+> manually, so you can follow and adapt each step without the script.
+
+Clone the repo and run it:
 
 ```bash
 git clone https://github.com/belcht/RetroPie-LED-Controller.git
