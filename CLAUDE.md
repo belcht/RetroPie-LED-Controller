@@ -21,7 +21,9 @@ led-ws-cmd.py (one-shot CLI sender)  ───┘
   used by RunCommand / gameStart hooks
 ```
 
-The service is the single source of truth for the physical LEDs. The UI and the game hooks never touch the LEDs directly — they send a `{"cmd":"set", "animate":..., "color":..., "save":...}` message, which the service receives in [LEDControl.py:check_commands](LEDControl.py#L84) and uses to raise an `AnimationSwitch` exception that unwinds whichever animation loop is currently running. New animation loops resume from `main()`'s outer `while True`.
+The service is the single source of truth for the physical LEDs. The UI and the game hooks never touch the LEDs directly — they send a `{"cmd":"set", "animate":..., "color":..., "save":..., "system":..., "clear":...}` message, which the service receives in [LEDControl.py:check_commands](LEDControl.py#L84) and uses to raise an `AnimationSwitch` exception that unwinds whichever animation loop is currently running. New animation loops resume from `main()`'s outer `while True`.
+
+The optional `save`/`system`/`clear` fields control config persistence (the live preview happens regardless): `save` with no `system` writes the `[general]` default (`_save_config`); `save`+`system` writes that system's override `[systems].<system>` (`_save_system`); `save`+`system`+`clear` removes it (`_clear_system`). These TOML writers are surgical (preserve comments) and live at module level — **mirror any change across both `LEDControl.py` forks** (the RetroLED per-system editor is the only sender that sets `system`/`clear`).
 
 ### RetroPie vs Batocera — the fork that matters
 
