@@ -122,11 +122,21 @@ journalctl -t select-default-audio        # shows which output it chose
 To skip the selector entirely, just make sure the monitor is on the HDMI port
 **nearest the USB-C power jack** (HDMI0), and audio works with no config.
 
-### C2. USB sound card (optional upgrade)
+### C2. USB sound card (auto-enabled when present)
 
-Add the stable-naming udev rule and the USB current cap (setup/README §2), then
-the selector from C1 prefers the USB card when present. See also the **GPIO-5V
-monitor-power** requirement in section E if you're on the 7″ ROADOM panel.
+The stable-naming udev rule is **harmless without a dongle** (it only matches the
+dongle's USB ID), so the installer drops it on every build by default — meaning a
+plugged-in USB sound card is auto-named and the selector from C1 prefers it, with
+HDMI as the fallback. To do it by hand:
+
+```bash
+sudo cp setup/90-waveshare-usb-audio.rules /etc/udev/rules.d/
+sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=sound --action=add
+```
+
+The USB current cap (`usb_max_current_enable=1`) is covered in §B1. See also the
+**GPIO-5V monitor-power** requirement in section E if you're on the 7″ ROADOM
+panel. (To force HDMI even with a dongle plugged in, just skip the udev rule.)
 
 ---
 

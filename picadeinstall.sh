@@ -33,7 +33,7 @@ DO_JOURNALD=1
 DO_BOOT_TWEAKS=1
 DO_USB_POWER=1         # raise USB current budget (default on; --no-usb-power to skip)
 DO_WATCHDOG=1
-DO_USB_AUDIO=0         # opt-in
+DO_USB_AUDIO=1         # install the USB dongle naming rule (default on, harmless w/o dongle; --no-usb-audio to skip)
 DO_USBROMSERVICE=0     # opt-in
 DO_SAMBA=0             # opt-in
 NUM_LEDS=""
@@ -66,9 +66,10 @@ Options:
   --no-boot-tweaks  skip boot-speed tweaks (disable wait-online / nmbd)
   --no-usb-power    don't set usb_max_current_enable=1 (default sets it; needs 5A/27W PSU)
   --no-watchdog     skip the WiFi watchdog (it self-disables anyway)
-  --usb-audio       add USB sound-card support (stable naming + max USB current).
-                    The boot audio auto-selector is installed either way; this
-                    just lets it prefer the USB card when one is plugged in.
+  --no-usb-audio    skip the USB sound-card naming rule (default installs it; it's
+                    harmless without a dongle, and auto-prefers the USB card when
+                    one is present — now or plugged in later). --usb-audio is the
+                    default and kept only for back-compat.
   --usbromservice   install RetroPie USB ROM service
   --samba           install RetroPie Samba ROM shares
   -h, --help        show this help
@@ -89,7 +90,8 @@ while [ $# -gt 0 ]; do
     --no-boot-tweaks) DO_BOOT_TWEAKS=0 ;;
     --no-usb-power) DO_USB_POWER=0 ;;
     --no-watchdog) DO_WATCHDOG=0 ;;
-    --usb-audio) DO_USB_AUDIO=1 ;;
+    --usb-audio) DO_USB_AUDIO=1 ;;     # default; kept for back-compat
+    --no-usb-audio) DO_USB_AUDIO=0 ;;
     --usbromservice) DO_USBROMSERVICE=1 ;;
     --samba) DO_SAMBA=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -212,29 +214,32 @@ usb_max_current_enable=1"
   ok "usb_max_current_enable=1 set in $(basename "$BOOT_CFG")"
 }
 
-# USB-audio-specific bits (opt-in): stable name for the dongle. The USB current
-# cap is handled by m_usb_power (default on). Runs BEFORE m_audio so the
-# selector's one-shot run sees the named card.
-m_usb_audio(){
-  [ "$DO_USB_AUDIO" = 1 ] || { info "USB audio not selected — selector will default to the connected HDMI/monitor speakers"; return; }
-  step "USB sound-card support (stable naming)"
-  install -m 644 "$SETUP_DIR/90-waveshare-usb-audio.rules" /etc/udev/rules.d/90-waveshare-usb-audio.rules
-  udevadm control --reload; udevadm trigger --subsystem-match=sound --action=add 2>/dev/null || true
-  ok "USB audio: stable name 'WaveshareUSB'"
-  warn "If powering the display through the Pi's USB, the dongle may not enumerate at boot."
-  info "  -> power the display from the GPIO 5V rail instead. See docs/BUILD.md (USB audio)."
-}
-
-# Audio selector (ALWAYS): at boot, default ALSA to the USB card if present
-# (named by --usb-audio), else the *connected* HDMI output — so there is always
-# sound, on whichever HDMI port the monitor is actually plugged into.
+# Audio (ALWAYS): install the boot selector + the USB dongle naming rule, so the
+# default output auto-picks the USB sound card when one is present (named or later
+# plugged in) and the connected HDMI otherwise. The naming rule is harmless with
+# no dongle — it only matches the dongle's VID:PID — so it goes on every build by
+# default (skip with --no-usb-audio). The selector runs after the rule so its
+# one-shot pass sees the named card.
 m_audio(){
-  step "Audio output auto-selector (connected HDMI, or USB card when present)"
+  step "Audio output auto-selector (USB sound card if present, else connected HDMI)"
+  if [ "$DO_USB_AUDIO" = 1 ]; then
+    install -m 644 "$SETUP_DIR/90-waveshare-usb-audio.rules" /etc/udev/rules.d/90-waveshare-usb-audio.rules
+    udevadm control --reload; udevadm trigger --subsystem-match=sound --action=add 2>/dev/null || true
+  else
+    info "--no-usb-audio: skipping USB dongle naming (default will be HDMI even if a dongle is plugged in)"
+  fi
   install -m 755 "$SETUP_DIR/select-default-audio.sh" /usr/local/bin/select-default-audio.sh
   install -m 644 "$SETUP_DIR/select-default-audio.service" /etc/systemd/system/select-default-audio.service
   systemctl daemon-reload; systemctl enable select-default-audio.service >/dev/null 2>&1
   /usr/local/bin/select-default-audio.sh || true
-  ok "audio selector installed + enabled (picks the connected output at boot)"
+  # feedback: did we actually find the BOM dongle right now?
+  if [ "$DO_USB_AUDIO" = 1 ] && lsusb 2>/dev/null | grep -qi "0c76:1203"; then
+    ok "USB sound card detected → default audio = USB (named WaveshareUSB)"
+    warn "If powering the display through the Pi's USB, the dongle may not cold-enumerate at boot."
+    info "  -> power the display from the GPIO 5V rail instead. See docs/BUILD.md (USB audio)."
+  else
+    ok "no USB sound card present → default audio = the connected HDMI"
+  fi
 }
 
 m_watchdog(){
@@ -291,7 +296,6 @@ run_full(){
   m_journald
   m_boot_tweaks
   m_usb_power
-  m_usb_audio
   m_audio
   m_watchdog
   m_retropie
@@ -302,7 +306,6 @@ run_full(){
 
 run_update(){
   step "picadeinstall --update (LED + audio + watchdog only)"
-  m_usb_audio
   m_audio
   m_watchdog
   m_leds

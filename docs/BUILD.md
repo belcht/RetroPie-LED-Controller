@@ -257,7 +257,8 @@ full install:
 --auto            non-interactive (needs --leds); use defaults, no prompts
 --update          re-apply ONLY the LED software + audio + watchdog (fast, safe)
 --reset           full install AND reset ledcontrol.toml to defaults
---usb-audio       install USB sound-card support (see Step 6)
+--no-usb-audio    don't install the USB sound-card naming rule (default installs
+                  it; it auto-prefers the dongle when present — see Step 6)
 --usbromservice   RetroPie USB ROM service (load ROMs from a USB stick)
 --samba           RetroPie Samba ROM shares (load ROMs over the network)
 --no-upgrade      skip 'apt full-upgrade' (you did it in Step 4)
@@ -285,36 +286,24 @@ re-run can't surprise you by rebuilding on top of a changed system.
 
 ## Step 6 — Audio
 
-This build has three audio options, simplest first. **Pick one** — you don't need
-the USB sound card unless you want it.
+**Audio is automatic — you don't choose a mode.** `picadeinstall` installs a
+boot-time **audio selector** plus the USB sound-card **naming rule** on every
+build, and at each boot it picks the right output for whatever's plugged in:
 
-### Option A (default, simplest): the monitor's HDMI speakers
+- **USB sound card present** → it's the default (louder/clearer; recommended ~$25
+  upgrade — the dongle in the BOM).
+- **No USB sound card** → the **connected HDMI** (the selector detects whichever
+  HDMI port the monitor is on, so it works on HDMI0 *or* HDMI1 — no silent-card-0
+  surprise).
 
-Do nothing. If your display has speakers (the 7″/8″/10″ panels in the BOM do),
-`picadeinstall` installs a boot-time **audio selector** on every build that sets
-the default output to **whichever HDMI port the monitor is actually connected
-to** — so it works whether you used HDMI0 or HDMI1 on the Pi. This is the right
-choice for most builds.
+So plugging the USB dongle in — now or later — "just works," and pulling it out
+falls back to HDMI. No flag needed. (The naming rule is harmless without a
+dongle: it only matches the dongle's USB ID.)
 
-> Why this matters: with no selector, ALSA defaults to card 0 (the HDMI port
-> nearest the USB-C power jack). If your cable is in the *other* port, you'd get
-> silence. The selector detects the connected port and avoids that entirely.
+> Don't want USB audio even with a dongle plugged in? Install with
+> **`--no-usb-audio`** and the default stays on HDMI.
 
-### Option B (recommended upgrade, ~$25): a USB sound card + small amp/speaker
-
-Louder and clearer than panel speakers, and rock-solid on the 8″/10″ monitors.
-Install it with:
-
-```bash
-sudo ./picadeinstall.sh --update --usb-audio   # or include --usb-audio on a full run
-```
-
-This adds a udev rule that names the card **`WaveshareUSB`** no matter which port
-it's on and raises the USB current cap. The **boot-time audio selector** (always
-installed — see Option A) then prefers that USB card when it's present and falls
-back to the connected HDMI when it isn't. So there's always sound either way.
-
-### Option C (advanced): USB sound card on the 7″ ROADOM panel
+### Advanced: USB sound card on the 7″ ROADOM panel
 
 The 7″ ROADOM has a quirk: **powering it through the Pi's USB port stops the USB
 sound card from enumerating at boot** (a cold-start USB conflict — see
