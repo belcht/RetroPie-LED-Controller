@@ -677,7 +677,7 @@ class RetroLED:
             elif key == 'persystem':
                 self.system_idx = 0
                 self.scroll_off = 0
-                self._clamp_scroll(self.system_idx, max(1, len(self.systems)))
+                self._clamp_scroll(self.system_idx, len(self.systems) + 1)
                 self.state = self.SYSTEM_LIST
                 self._play('select')
             elif key == 'off':
@@ -793,22 +793,28 @@ class RetroLED:
         self.preview_color   = self.sys_base_color
         self._send_preview(self.preview_animate, self.preview_color)
 
+    def _exit_to_main(self):
+        """Leave the per-system editor and restore the global look on the strip."""
+        self.edit_system = None
+        self.preview_animate, self.preview_color = self.cur_animate, self.cur_color
+        self._send_preview(self.cur_animate, self.cur_color)  # restore global look
+        self.scroll_off = 0
+        self.state = self.MAIN
+
     def _input_system_list(self, up, down, sel, back):
-        n = max(1, len(self.systems))
-        if up:   self.system_idx = (self.system_idx - 1) % n; self._clamp_scroll(self.system_idx, n); self._play('nav')
-        if down: self.system_idx = (self.system_idx + 1) % n; self._clamp_scroll(self.system_idx, n); self._play('nav')
-        if sel and self.systems:
-            self.scroll_off = 0
-            self._enter_system(self.systems[self.system_idx])
-            self._play('select')
+        rows     = len(self.systems) + 1     # extra row = an on-screen BACK at the bottom
+        back_row = len(self.systems)         # so you never depend on the back button
+        if up:   self.system_idx = (self.system_idx - 1) % rows; self._clamp_scroll(self.system_idx, rows); self._play('nav')
+        if down: self.system_idx = (self.system_idx + 1) % rows; self._clamp_scroll(self.system_idx, rows); self._play('nav')
+        if sel:
+            if self.system_idx == back_row:
+                self._exit_to_main(); self._play('back')
+            elif self.systems:
+                self.scroll_off = 0
+                self._enter_system(self.systems[self.system_idx])
+                self._play('select')
         if back:
-            self.edit_system = None
-            self.preview_animate, self.preview_color = self.cur_animate, self.cur_color
-            self._send_preview(self.cur_animate, self.cur_color)  # restore global look
-            self.scroll_off = 0
-            self._clamp_scroll(self.main_idx, len(self.MAIN_ITEMS))
-            self.state = self.MAIN
-            self._play('back')
+            self._exit_to_main(); self._play('back')
 
     def _input_system_menu(self, up, down, sel, back):
         n = len(self.SYSTEM_MENU_ITEMS)
@@ -1092,11 +1098,9 @@ class RetroLED:
         elif self.state == self.SYSTEM_LIST:
             draw_text(self.screen, 'PER-SYSTEM LEDS', H // 42, GOLD,
                       W // 2, self.menu_top - int(H * 0.025))
-            if self.systems:
-                items = [(s.upper(), '') for s in self.systems]
-                rvals = [self._system_summary(s) for s in self.systems]
-            else:
-                items, rvals = [('(NO SYSTEMS FOUND)', '')], ['']
+            # systems, then an on-screen BACK row (always selectable, even with no systems)
+            items = [(s.upper(), '') for s in self.systems] + [('◀ BACK', '')]
+            rvals = [self._system_summary(s) for s in self.systems] + ['']
             self._draw_list(items=items, sel_idx=self.system_idx, top=self.menu_top,
                             height=menu_h, right_vals=rvals)
         elif self.state == self.SYSTEM_MENU:
