@@ -53,12 +53,16 @@ while true; do
         nmcli radio wifi off >>"$LOG" 2>&1; sleep 3
         nmcli radio wifi on  >>"$LOG" 2>&1; sleep 8
     fi
-    # Escalate every 6th — reload the onboard brcmfmac driver (clears a wedged adapter).
-    if [ $((fails % 6)) -eq 0 ] && [ -d /sys/module/brcmfmac ]; then
-        log "escalate: reload brcmfmac"
-        modprobe -r brcmfmac >>"$LOG" 2>&1; sleep 2
-        modprobe    brcmfmac >>"$LOG" 2>&1; sleep 10
-    fi
+    # NOTE: we deliberately do NOT reload the brcmfmac module here.
+    # A `modprobe -r brcmfmac` reload is unsafe and ineffective as a recovery step:
+    #   * It almost always fails with "Module brcmfmac is in use" (NetworkManager /
+    #     the netdev hold it open), so it does nothing — confirmed in the field.
+    #   * When it *does* unload, a reload at a bad moment is a known way to leave the
+    #     onboard chip half-wedged (deaf RX / no association) until a COLD power-cycle
+    #     — a soft reboot won't fully re-init it. Net negative.
+    # The reconnect + radio off/on steps above are the safe recovery. For a box that
+    # must stay reliable under sustained load, the real fix is a USB WiFi adapter or
+    # Ethernet (bypasses the onboard SDIO WiFi) — see README §3. (removed 2026-06-15)
 
     sleep 8
 done

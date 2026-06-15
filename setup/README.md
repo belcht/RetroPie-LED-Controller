@@ -91,6 +91,22 @@ association** with mesh networks (eero, Google WiFi) — 802.11 `status_code=16`
 (auth timeout). Symptom: the box boots fine into EmulationStation but `wlan0`
 has **no IP**, ~half the time. A manual reconnect always works. Three layers:
 
+> **Bigger picture — the onboard WiFi is fine for light use, not for sustained
+> load.** The Pi 5's WiFi chip (Broadcom CYW43455) talks to the SoC over an
+> **SDIO bus** that becomes unreliable under sustained throughput. Two failure
+> modes seen in the field: (1) **SDIO halt** under a long *transmit* (e.g. a
+> multi-GB file copy) — `brcmf_sdio_txfail` → *"failed backplane access over
+> SDIO, halting operation"* — the radio stays associated but moves ~0 data until
+> a reboot; (2) **degraded RX** (often after a kernel update) — sees only a few
+> APs, can't see its own, no errors logged. Neither is power/heat (`vcgencmd
+> get_throttled` = `0x0`). The watchdog (3c) and `disable-bt` help, but the only
+> *cure* for a box that must stay reliable under load is to **bypass the onboard
+> WiFi**: a **USB WiFi adapter** (e.g. a TP-Link Archer, driver `rtw88_8821au`)
+> or **wired Ethernet**. A USB adapter on the reference master box took a 79 GB
+> transfer with **0 drops** vs **554** on the onboard radio. Optional extra
+> mitigation since these cabinets don't use Bluetooth: `dtoverlay=disable-bt` in
+> `/boot/firmware/config.txt` frees the WiFi/BT shared resources on the chip.
+
 ### 3a. `brcmfmac.conf` — disable firmware roaming
 
 ```bash
@@ -123,9 +139,19 @@ sudo nmcli -g 802-11-wireless-security.psk-flags connection show "$CON"   # want
 ### 3c. `wifi-watchdog` — the safety net (on by default; self-disabling)
 
 Even with the above, association still misses some boots. The watchdog runs the
-same recovery you'd do by hand — reconnect → bounce radio → reload firmware —
-until it's online, then idles. On the reference box it brings every boot online
-within ~20–80 s, unattended.
+same recovery you'd do by hand — reconnect → bounce the radio — until it's
+online, then idles. On the reference box it brings every boot online within
+~20–80 s, unattended.
+
+> **Note (2026-06-15): the watchdog no longer reloads the `brcmfmac` driver.**
+> It used to escalate to `modprobe -r brcmfmac && modprobe brcmfmac` as a last
+> resort. That step was removed because it is both ineffective and risky:
+> in practice the unload almost always fails with *"Module brcmfmac is in use"*
+> (NetworkManager holds the netdev open), so it does nothing; and on the rare
+> occasion it *does* unload, reloading at a bad moment can leave the onboard
+> chip **half-wedged — interface present and firmware loaded, but RX effectively
+> deaf** (can't see/join its own AP) until a **cold power-cycle** (a soft reboot
+> won't re-init it). Reconnect + radio bounce are the safe recoveries.
 
 It is **safe to install on every build**, so `picadeinstall` enables it by
 default (skip with `--no-watchdog`). It's **self-disabling**: "online" means a
@@ -134,15 +160,6 @@ healthy WiFi it just idles. It only ever acts when there is **no IP anywhere** �
 and then it cycles through **every** WiFi device by name discovery (onboard +
 any USB adapter), so there's nothing to hardcode or edit. (This is the rewrite —
 no `CON`/`IFACE` to tune.)
-
-```bash
-sudo install -m 755 setup/wifi-watchdog.sh      /usr/local/bin/wifi-watchdog.sh
-sudo install -m 644 setup/wifi-watchdog.service  /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now wifi-watchdog.service
-journalctl -u wifi-watchdog.service -f           # watch it work
-tail -f /var/log/wifi-watchdog.log
-```
 
 ```bash
 sudo install -m 755 setup/wifi-watchdog.sh      /usr/local/bin/wifi-watchdog.sh
