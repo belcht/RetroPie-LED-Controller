@@ -239,7 +239,15 @@ m_no_pipewire(){
   done
   chown -R "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.config/systemd"
   ok "PipeWire masked for $TARGET_USER (reversible; no packages removed)"
-  info "  desktop audio is now off — expected for a dedicated cabinet"
+  # On a dual-purpose (desktop) box, install a startx wrapper that turns PipeWire
+  # back on just for the duration of a desktop session — so the desktop keeps
+  # audio while EmulationStation (raw ALSA) keeps its volume control.
+  if [ -x /usr/bin/startx ]; then
+    install -m 755 "$SETUP_DIR/startx-pipewire.sh" /usr/local/bin/startx
+    ok "installed startx wrapper — desktop sessions re-enable PipeWire, arcade stays masked"
+  else
+    info "  no desktop (startx) present — desktop audio not applicable"
+  fi
 }
 
 # Audio (ALWAYS): install the boot selector + the USB dongle naming rule, so the
