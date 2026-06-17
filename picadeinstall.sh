@@ -245,6 +245,15 @@ m_no_pipewire(){
   if [ -x /usr/bin/startx ]; then
     install -m 755 "$SETUP_DIR/startx-pipewire.sh" /usr/local/bin/startx
     ok "installed startx wrapper — desktop sessions re-enable PipeWire, arcade stays masked"
+    # fluidsynth (a desktop MIDI-synth user service) opens the USB sound card and
+    # holds it, which locks PipeWire out of it — so the desktop only ever sees
+    # HDMI and the USB speaker gets no sound. Mask it; an arcade box doesn't need
+    # a MIDI synthesizer.
+    if [ -e /usr/lib/systemd/user/fluidsynth.service ]; then
+      ln -sf /dev/null "$ud/fluidsynth.service"
+      chown -h "$TARGET_USER":"$TARGET_USER" "$ud/fluidsynth.service"
+      ok "masked fluidsynth (it was holding the USB card away from the desktop)"
+    fi
   else
     info "  no desktop (startx) present — desktop audio not applicable"
   fi

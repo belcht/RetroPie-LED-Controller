@@ -251,3 +251,20 @@ Gotchas (learned the hard way):
 - Stored in `~/.emulationstation/es_settings.cfg` as
   `<string name="AudioCard" value="default" />` and
   `<string name="AudioDevice" value="Speaker" />` (or `Master`).
+
+### Dual-purpose box (arcade + PIXEL desktop): keeping both audios working
+
+Masking PipeWire fixes the arcade volume but kills desktop audio. To keep both,
+`picadeinstall` installs a **`startx` wrapper** (`/usr/local/bin/startx`, shadows
+`/usr/bin/startx`) that unmasks + starts PipeWire for the duration of a desktop
+session and stops + re-masks it on exit (via a `trap`). EmulationStation isn't
+running during `startx`, so the cards hand off cleanly.
+
+Two gotchas found getting the desktop side working:
+- **The USB speaker has to be PipeWire's default sink**, or desktop audio goes to
+  the monitor's HDMI. PipeWire usually picks it once it can see the card.
+- **`fluidsynth` blocks it.** On the desktop image, `fluidsynth.service` (a MIDI
+  synth, per-user service) opens and *holds* the USB card, so PipeWire only ever
+  sees HDMI and the USB speaker is silent. Mask it (`systemctl --user mask
+  fluidsynth.service`) — an arcade box doesn't need a MIDI synth. The installer
+  masks it automatically alongside the startx wrapper.
