@@ -152,11 +152,17 @@ systemctl --user mask pipewire.service pipewire.socket \
 # reboot. revert anytime with: systemctl --user unmask <same units>
 ```
 
-Then point EmulationStation's volume slider at the control that actually works —
-`Speaker` on the WaveShare USB card (its `Master` is inert), or `Master` over a
-softvol for HDMI (the selector in §C1 sets this up). In ES: **Sound Settings →
-AUDIO CARD = default, AUDIO DEVICE = Speaker** (the installer's audio selector
-sets these for you).
+Then point EmulationStation's volume slider at the control that actually works.
+In **ES → Sound Settings**, set:
+
+| Active output | AUDIO CARD | AUDIO DEVICE |
+|---|---|---|
+| USB WaveShare | `default` | `Speaker` (its `Master` is inert) |
+| HDMI | `default` | `Master` (the §C1 selector's softvol) |
+
+The installer's audio selector sets these for you on every boot — but if you set
+them by hand, **AUDIO CARD must be `default`**, not `hw`/`plughw` (with those the
+choice won't stick and the slider finds no control).
 
 ---
 

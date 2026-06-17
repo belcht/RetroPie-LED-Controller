@@ -259,6 +259,8 @@ full install:
 --reset           full install AND reset ledcontrol.toml to defaults
 --no-usb-audio    don't install the USB sound-card naming rule (default installs
                   it; it auto-prefers the dongle when present — see Step 6)
+--keep-pipewire   don't mask PipeWire (default masks it on desktop images so the
+                  RetroPie/ES volume control works — see Step 6)
 --usbromservice   RetroPie USB ROM service (load ROMs from a USB stick)
 --samba           RetroPie Samba ROM shares (load ROMs over the network)
 --no-upgrade      skip 'apt full-upgrade' (you did it in Step 4)

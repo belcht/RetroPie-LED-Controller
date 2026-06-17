@@ -230,3 +230,24 @@ the cards). Layers of the diagnosis:
    `AudioDevice=Speaker` for the USB card (or `Master` over softvol for HDMI).
 3. Revert PipeWire anytime: `systemctl --user unmask pipewire.service
    pipewire.socket pipewire-pulse.service pipewire-pulse.socket wireplumber.service`.
+
+### EmulationStation audio selections (what to set / verify)
+
+The boot selector sets these automatically every boot; this is what to confirm
+in **EmulationStation → main menu → Sound Settings**, or to set by hand:
+
+| Active output | AUDIO CARD | AUDIO DEVICE | Why |
+|---|---|---|---|
+| USB WaveShare | `default` | **Speaker** | the card's *real* control — its `Master` is inert |
+| HDMI (fallback) | `default` | **Master** | a software `softvol` control (HDMI has no hardware volume) |
+
+Gotchas (learned the hard way):
+- **AUDIO CARD must be `default`** — *not* `hw` or `plughw`. With `hw`/`plughw`
+  the setting won't stick and the slider can't find the control.
+- The slider only does anything once **PipeWire is masked** — otherwise PipeWire
+  owns the card and ALSA volume is a no-op.
+- After changing the output (e.g. unplugging the dongle), the device differs
+  (`Speaker` → `Master`); the selector swaps it for you on the next boot.
+- Stored in `~/.emulationstation/es_settings.cfg` as
+  `<string name="AudioCard" value="default" />` and
+  `<string name="AudioDevice" value="Speaker" />` (or `Master`).
