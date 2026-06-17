@@ -34,6 +34,7 @@ DO_BOOT_TWEAKS=1
 DO_USB_POWER=1         # raise USB current budget (default on; --no-usb-power to skip)
 DO_WATCHDOG=1
 DO_USB_AUDIO=1         # install the USB dongle naming rule (default on, harmless w/o dongle; --no-usb-audio to skip)
+DO_NO_PIPEWIRE=1       # mask PipeWire if present so RetroPie ALSA audio/volume work (--keep-pipewire to skip)
 DO_USBROMSERVICE=0     # opt-in
 DO_SAMBA=0             # opt-in
 NUM_LEDS=""
@@ -70,6 +71,10 @@ Options:
                     harmless without a dongle, and auto-prefers the USB card when
                     one is present — now or plugged in later). --usb-audio is the
                     default and kept only for back-compat.
+  --keep-pipewire   don't mask PipeWire. By default, if PipeWire is present (a
+                    desktop-flavored image), it's masked so RetroPie's ALSA audio
+                    and volume control work. Masking is reversible and removes no
+                    packages; it disables desktop audio (fine for a cabinet).
   --usbromservice   install RetroPie USB ROM service
   --samba           install RetroPie Samba ROM shares
   -h, --help        show this help
@@ -92,6 +97,7 @@ while [ $# -gt 0 ]; do
     --no-watchdog) DO_WATCHDOG=0 ;;
     --usb-audio) DO_USB_AUDIO=1 ;;     # default; kept for back-compat
     --no-usb-audio) DO_USB_AUDIO=0 ;;
+    --keep-pipewire) DO_NO_PIPEWIRE=0 ;;
     --usbromservice) DO_USBROMSERVICE=1 ;;
     --samba) DO_SAMBA=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -214,6 +220,28 @@ usb_max_current_enable=1"
   ok "usb_max_current_enable=1 set in $(basename "$BOOT_CFG")"
 }
 
+# Mask PipeWire (default on, only if present). On a desktop-flavored RPi OS image
+# PipeWire owns the audio devices, which breaks RetroPie's ALSA volume control and
+# makes RetroPie's audio menu bail ("pulseaudio is running"). Masking the per-user
+# PipeWire services — by symlinking their unit files to /dev/null, the same as
+# `systemctl --user mask` — frees the cards for ALSA. It removes NO packages (that
+# would cascade out the whole Raspberry Pi Desktop core) and is reversible with
+# `systemctl --user unmask ...`. It disables desktop audio, which a cabinet doesn't
+# use. On a true RetroPie/Lite image there is no PipeWire and this is a no-op.
+m_no_pipewire(){
+  [ "$DO_NO_PIPEWIRE" = 1 ] || { info "skipped (--keep-pipewire)"; return; }
+  [ -e /usr/lib/systemd/user/pipewire.service ] || { info "no PipeWire present — nothing to mask"; return; }
+  step "Masking PipeWire (so RetroPie ALSA audio + volume control work)"
+  local ud="$TARGET_HOME/.config/systemd/user"
+  install -d "$ud"
+  for u in pipewire.service pipewire.socket pipewire-pulse.service pipewire-pulse.socket wireplumber.service; do
+    ln -sf /dev/null "$ud/$u"
+  done
+  chown -R "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.config/systemd"
+  ok "PipeWire masked for $TARGET_USER (reversible; no packages removed)"
+  info "  desktop audio is now off — expected for a dedicated cabinet"
+}
+
 # Audio (ALWAYS): install the boot selector + the USB dongle naming rule, so the
 # default output auto-picks the USB sound card when one is present (named or later
 # plugged in) and the connected HDMI otherwise. The naming rule is harmless with
@@ -296,6 +324,7 @@ run_full(){
   m_journald
   m_boot_tweaks
   m_usb_power
+  m_no_pipewire
   m_audio
   m_watchdog
   m_retropie
@@ -306,6 +335,7 @@ run_full(){
 
 run_update(){
   step "picadeinstall --update (LED + audio + watchdog only)"
+  m_no_pipewire
   m_audio
   m_watchdog
   m_leds

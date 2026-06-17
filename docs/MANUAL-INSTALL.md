@@ -138,6 +138,26 @@ The USB current cap (`usb_max_current_enable=1`) is covered in §B1. See also th
 **GPIO-5V monitor-power** requirement in section E if you're on the 7″ ROADOM
 panel. (To force HDMI even with a dongle plugged in, just skip the udev rule.)
 
+### C3. Volume control on a *desktop* image (mask PipeWire)
+
+Only needed if you imaged a **desktop** Raspberry Pi OS (it runs **PipeWire**,
+which breaks RetroPie's ALSA volume control — the RetroPie audio menu says
+"pulseaudio is running"). The RetroPie/Lite image has no PipeWire and needs none
+of this. **Mask** the per-user PipeWire services (reversible; never `apt remove`
+them — that cascades out the whole Pi Desktop core):
+
+```bash
+systemctl --user mask pipewire.service pipewire.socket \
+  pipewire-pulse.service pipewire-pulse.socket wireplumber.service
+# reboot. revert anytime with: systemctl --user unmask <same units>
+```
+
+Then point EmulationStation's volume slider at the control that actually works —
+`Speaker` on the WaveShare USB card (its `Master` is inert), or `Master` over a
+softvol for HDMI (the selector in §C1 sets this up). In ES: **Sound Settings →
+AUDIO CARD = default, AUDIO DEVICE = Speaker** (the installer's audio selector
+sets these for you).
+
 ---
 
 ## D. LED controller by hand

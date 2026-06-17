@@ -303,6 +303,17 @@ dongle: it only matches the dongle's USB ID.)
 > Don't want USB audio even with a dongle plugged in? Install with
 > **`--no-usb-audio`** and the default stays on HDMI.
 
+**Volume control** also works automatically — the installer points
+EmulationStation's volume slider at the right mixer (`Speaker` for the USB card;
+a software control for HDMI, which has no hardware volume of its own).
+
+> **If you imaged a *desktop* Raspberry Pi OS**, it runs **PipeWire**, which hijacks
+> audio so RetroPie's volume control can't work (the RetroPie audio menu even says
+> "pulseaudio is running"). `picadeinstall` handles this by **masking PipeWire**
+> (reversible, removes no packages — `--keep-pipewire` to skip). **Better: use the
+> RetroPie image or RPi OS Lite**, which has no sound server and avoids the whole
+> issue. See [BUILD-NOTES.md](BUILD-NOTES.md).
+
 ### Advanced: USB sound card on the 7″ ROADOM panel
 
 The 7″ ROADOM has a quirk: **powering it through the Pi's USB port stops the USB

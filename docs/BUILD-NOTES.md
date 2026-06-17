@@ -193,3 +193,40 @@ else the connected HDMI output — so there's always sound, dongle or not.
 
 **TODO when integrating with install.sh:** wire `num_leds` from picadeinstall into
 the LED install / `ledcontrol.toml` on first install only.
+
+## SOLVED: volume control on a PipeWire image (RetroPie audio menu says "pulseaudio is running")
+
+**Symptom:** on some boxes the RetroPie audio menu refuses ("pulseaudio is
+running, can't do anything") and EmulationStation's volume slider doesn't change
+anything — yet the desktop volume control works and persists.
+
+**Why it happens — and why most cabinets never see it:** these boxes were imaged
+from a **desktop-flavored Raspberry Pi OS**, which runs **PipeWire** (with the
+`pipewire-pulse` shim) as the audio server. Almost nobody hits this because the
+standard build uses the **RetroPie image** or **RPi OS Lite** — pure ALSA, no
+sound server — where RetroPie/ES volume "just works." *It is not a Pi 5 / HDMI
+problem; it's a "PipeWire got installed alongside RetroPie" problem.* **Prefer
+the RetroPie / Lite image and this never comes up.**
+
+On a PipeWire box, RetroPie's ALSA volume tooling is fighting PipeWire (which owns
+the cards). Layers of the diagnosis:
+- PipeWire is **per-user services** (`pipewire`, `pipewire-pulse`, `wireplumber`),
+  *not* a system service — so it's maskable. The danger is **removing** the
+  packages: `apt remove pipewire …` cascades out `rpd-x-core` / the whole
+  Raspberry Pi Desktop core (this is what has crippled boxes before). **Never
+  remove — only mask.**
+- With PipeWire masked, raw ALSA returns, and the USB card exposes its full mixer
+  including a **`Master`** that PipeWire had been abstracting away.
+- But on the WaveShare/JMTek USB card, **`Master` is inert — `Speaker` is the real
+  volume control.** EmulationStation defaults to driving `Master`, so the slider
+  moved nothing. Pointing ES at `Speaker` fixes it.
+- **HDMI has no hardware volume control at all**, so for the HDMI fallback we wrap
+  it in an ALSA **`softvol`** that exposes a software `Master`, and point ES there.
+
+**The fix (all automated now):**
+1. `picadeinstall` **masks PipeWire** when present (`m_no_pipewire`; reversible,
+   removes no packages; `--keep-pipewire` to skip).
+2. The boot **audio selector** sets EmulationStation `AudioCard=default` and
+   `AudioDevice=Speaker` for the USB card (or `Master` over softvol for HDMI).
+3. Revert PipeWire anytime: `systemctl --user unmask pipewire.service
+   pipewire.socket pipewire-pulse.service pipewire-pulse.socket wireplumber.service`.
