@@ -277,6 +277,14 @@ m_audio(){
   install -m 644 "$SETUP_DIR/select-default-audio.service" /etc/systemd/system/select-default-audio.service
   systemctl daemon-reload; systemctl enable select-default-audio.service >/dev/null 2>&1
   /usr/local/bin/select-default-audio.sh || true
+  # fluidsynth ships a PER-USER service that auto-starts a MIDI synth at login and
+  # grabs the ALSA device exclusively. Some emulators/ports (e.g. gzdoom) pull it
+  # in as a dependency. On the exclusive HDMI audio path (plug/softvol, no dmix on
+  # vc4 HDMI) that locks the device → ES and games get "device busy" → no sound.
+  # Mask it GLOBALLY so it can never auto-start — works even if fluidsynth gets
+  # installed later by a future RetroPie-Setup port build.
+  systemctl --global mask fluidsynth.service >/dev/null 2>&1 || true
+  ok "masked fluidsynth user service (prevents it hijacking the audio device)"
   # feedback: did we actually find the BOM dongle right now?
   if [ "$DO_USB_AUDIO" = 1 ] && lsusb 2>/dev/null | grep -qi "0c76:1203"; then
     ok "USB sound card detected → default audio = USB (named WaveshareUSB)"

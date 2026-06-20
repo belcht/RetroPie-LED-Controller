@@ -84,6 +84,28 @@ journalctl -t select-default-audio         # shows which output it picked
 > Pairs with the naming rule in §2 — the selector greps for the name
 > `WaveshareUSB`, so install them together (the rule is what creates that name).
 
+### 2b. Mask `fluidsynth` so it can't steal the audio device
+
+**Why:** `fluidsynth` (a software MIDI synth) ships a **per-user systemd service**
+that auto-starts at login and opens the ALSA default device **exclusively**. It
+gets pulled in as a dependency by some emulators/ports (e.g. **gzdoom**) when you
+install them through RetroPie-Setup. On the **HDMI audio path** our `asound.conf`
+is `plughw`+`softvol` (not `dmix` — dmix won't initialize on the vc4 HDMI device),
+so whoever opens it first owns it. If fluidsynth wins at boot, EmulationStation
+and every game get **"Device or resource busy" → no sound** (USB/dmix boxes hide
+this; exclusive-HDMI boxes go silent). `picadeinstall` masks it for you;
+to do it by hand:
+
+```bash
+# global = applies to every user, and even if fluidsynth is installed later
+sudo systemctl --global mask fluidsynth.service
+# diagnose a "no sound" box: this shows if fluidsynth is holding the device
+sudo fuser -v /dev/snd/*
+```
+
+> It's the per-*user* unit, so `systemctl --user` / `--global` — **not** plain
+> `systemctl disable` (there is no system-level `fluidsynth.service`).
+
 ## 3. WiFi reliability on a mesh / eero network
 
 The Pi 5's onboard `brcmfmac` WiFi intermittently **fails its initial
