@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # deploy.sh — Sync repo to RetroPie or Batocera and run install
 #
+# NOTE: this runs the LED-ONLY installer (install.sh / batocera/install.sh) for fast
+#       iteration on the LED software after a box is already set up. For a FIRST-TIME /
+#       FULL build (OS update + RetroPie + hardening + LED), use picadeinstall.sh
+#       instead — see docs/QUICKSTART.md.
+#
 # Usage:
 #   bash deploy.sh retropie                  # deploy to RetroPie (default)
 #   bash deploy.sh batocera                  # deploy to Batocera
