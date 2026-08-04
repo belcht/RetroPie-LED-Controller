@@ -15,11 +15,15 @@ set -u
 LOG=/var/log/wifi-watchdog.log
 log(){ echo "$(date '+%F %T') $*" >> "$LOG"; }
 
-# global IPv4 on any interface? (loopback is scope host, so it's excluded)
-have_ip(){ ip -4 -o addr show scope global 2>/dev/null | grep -q inet; }
+# Real-uplink IPv4? EXCLUDE virtual interfaces (docker/veth/bridge/VPN) — otherwise a
+# box running Docker (docker0=172.17.0.1) or Tailscale looks permanently "online" and
+# this watchdog never fires. Only physical uplinks (eth*, end*, wlan*, wlx*, ...) count.
+_real_ips(){ ip -4 -o addr show scope global 2>/dev/null \
+    | awk '$2 !~ /^(docker|veth|br-|virbr|tailscale|tun|tap|wg|zt|cni|flannel|dummy|lo)/'; }
+have_ip(){ _real_ips | grep -q inet; }
 # all WiFi interface names (wlan0, wlan1, wlx..., etc.)
 wifi_devs(){ for d in /sys/class/net/*/wireless; do [ -e "$d" ] && basename "$(dirname "$d")"; done; }
-ips(){ ip -4 -o addr show scope global 2>/dev/null | awk '{print $2"="$4}' | tr '\n' ' '; }
+ips(){ _real_ips | awk '{print $2"="$4}' | tr '\n' ' '; }
 
 [ -f "$LOG" ] && [ "$(stat -c%s "$LOG" 2>/dev/null || echo 0)" -gt 1000000 ] && : > "$LOG"
 log "watchdog started; wifi devices: $(wifi_devs | tr '\n' ' ')"
