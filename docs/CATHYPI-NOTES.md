@@ -40,3 +40,17 @@ Ran clean in ~35 min (Result: success). Verified **after a real reboot**:
      no-op if absent, and the docs already say to change the VID:PID for a different card. ✓
    - **Monitor:** auto-detected (no forced resolution/rotation); our panels are documented as
      examples, not requirements. ✓
+
+## Emulators — basic_install gap + Trixie mGBA build (2026-08-05)
+RetroPie `basic_install` (Core+Main) leaves several emulators UNINSTALLED that a configured fleet
+box (pi4/PiVert) has. On cathypi this broke **arcade**: arcade defaults to `lr-mame2010`, an
+*optional* package that basic_install never installs — so every arcade launch hit a missing
+emulator. Installed to match pi4 via `retropie_packages.sh <pkg> _source_`:
+`lr-mame2010`, `lr-mame2003-plus`, `advmame` (arcade), `lr-desmume` (NDS), `lr-vice` (C64),
+`amiberry` (Amiga), `atari800`, `hypseus` (Daphne).
+- **`lr-mgba` will NOT build on Trixie** — recent mGBA dropped `Makefile.libretro`, so RetroPie's
+  module errors (`make: Makefile.libretro: No such file or directory`). Workaround: copy a prebuilt
+  `mgba_libretro.so` from another Trixie box (e.g. PiVert) into `/opt/retropie/libretrocores/lr-mgba/`
+  and verify `ldd … | grep -c 'not found'` == 0. GBA otherwise falls back to `lr-vba-next` (base).
+- **Installer/docs takeaway:** after a fresh full build, reconcile the emulator set against the
+  reference box, or per-system defaults (esp. arcade `lr-mame2010`) will point at missing cores.
