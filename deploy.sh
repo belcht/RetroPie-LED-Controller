@@ -3,13 +3,13 @@
 #
 # NOTE: this runs the LED-ONLY installer (install.sh / batocera/install.sh) for fast
 #       iteration on the LED software after a box is already set up. For a FIRST-TIME /
-#       FULL build (OS update + RetroPie + hardening + LED), use picadeinstall.sh
-#       instead — see docs/QUICKSTART.md.
+#       FULL build (OS update + RetroPie + hardening + LED), use the pi5Cade installer
+#       instead — see https://github.com/belcht/pi5Cade.
 #
 # Usage:
 #   bash deploy.sh retropie                  # deploy to RetroPie (default)
 #   bash deploy.sh batocera                  # deploy to Batocera
-#   bash deploy.sh pivert.local              # any hostname — auto-detects retropie
+#   bash deploy.sh your-retropie.local              # any hostname — auto-detects retropie
 #   bash deploy.sh retropie 192.168.1.42     # named target with IP override
 #   bash deploy.sh batocera 192.168.1.55     # named target with IP override
 #   bash deploy.sh retropie --sync-only      # sync files only, skip install

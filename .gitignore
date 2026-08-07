@@ -1,7 +1,4 @@
 __pycache__/
 *.pyc
-*.pyo
-venv/
-.env
-.DS_Store
 deploy.log
+.DS_Store

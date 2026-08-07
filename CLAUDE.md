@@ -60,9 +60,9 @@ python3 retro-led/retro-led.py       # terminal 2 (from repo root)
 
 **Deploy to a Pi from your Mac** ([deploy.sh](deploy.sh) — rsync + run installer):
 ```bash
-bash deploy.sh pivert.local                # RetroPie (auto-detected by name)
-bash deploy.sh batocera bat1.local         # Batocera
-bash deploy.sh pivert.local --sync-only    # sync only, skip running install.sh
+bash deploy.sh your-retropie.local                # RetroPie (auto-detected by name)
+bash deploy.sh batocera your-batocera.local         # Batocera
+bash deploy.sh your-retropie.local --sync-only    # sync only, skip running install.sh
 ```
 Deploy is incremental and logs to `deploy.log` (gitignored). First-time auth: `ssh-copy-id pi@host` (RetroPie, pw `raspberry`) or `ssh-copy-id root@host` (Batocera, pw `linux`).
 

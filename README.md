@@ -79,10 +79,10 @@ Each WS2812B draws up to **60mA at full white**. At the default 80% brightness l
 
 ## Installation — RetroPie
 
-> **Building a whole cabinet from a blank Pi?** Use **`picadeinstall.sh`**, the
-> one-command installer that does RetroPie, this LED software, box hardening, and
-> (optionally) USB audio together — see **[docs/BUILD.md](docs/BUILD.md)**. The
-> steps below are for adding the **LED software only** to an existing RetroPie.
+> **Building a whole cabinet from a blank Pi?** Use **[pi5Cade](https://github.com/belcht/pi5Cade)**,
+> the one-command installer that does RetroPie, this LED software, box hardening, and
+> (optionally) USB audio together. The steps below are for adding the **LED software only**
+> to an existing RetroPie.
 
 SSH into your Pi:
 
@@ -110,7 +110,7 @@ Restart EmulationStation after installation.
 ### Option A — Directly on the Batocera machine
 
 ```bash
-ssh root@bat1.local
+ssh root@your-batocera.local
 cd /userdata/system
 wget https://github.com/belcht/RetroPie-LED-Controller/archive/refs/heads/main.zip -O led.zip
 unzip led.zip
@@ -127,18 +127,18 @@ git clone https://github.com/belcht/RetroPie-LED-Controller.git
 cd RetroPie-LED-Controller
 
 # Set up passwordless SSH (first time only)
-ssh-copy-id pi@pivert.local      # RetroPie
-ssh-copy-id root@bat1.local      # Batocera
+ssh-copy-id pi@your-retropie.local      # RetroPie
+ssh-copy-id root@your-batocera.local      # Batocera
 
 # Deploy and install
-bash deploy.sh pivert.local               # RetroPie
-bash deploy.sh batocera bat1.local        # Batocera
-bash deploy.sh pivert.local --sync-only   # files only, skip install
+bash deploy.sh your-retropie.local               # RetroPie
+bash deploy.sh batocera your-batocera.local        # Batocera
+bash deploy.sh your-retropie.local --sync-only   # files only, skip install
 ```
 
 ### Option C — Windows via network share
 
-1. Open `\\bat1.local` in File Explorer
+1. Open `\\your-batocera.local` in File Explorer
 2. Copy the repo folder to `share\system\LEDControl\`
 3. SSH in and run `bash /userdata/system/LEDControl/batocera/install.sh`
 
@@ -391,4 +391,6 @@ Valid `color` values: `red` `green` `blue` `white` `yellow` `purple` `cyan` `ora
 
 ## License
 
-MIT — fork, modify, share freely.
+GPL-3.0 — see [LICENSE](LICENSE). Free to use, study, modify, and share; derivative works must
+remain open-source under the GPL. Bundled `retro-led/vendor/websockets/` is BSD-licensed (see its
+own notice).
