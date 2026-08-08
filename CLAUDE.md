@@ -84,7 +84,7 @@ python3 /userdata/system/LEDControl/led-ws-cmd.py --restore                     
 - **`check_commands()` must be called once per visible frame** in every animation. If you forget, the WebSocket will appear to hang.
 - **`broadcast_pixels(strip)` must follow every `strip.show()`** for the UI to stay in sync.
 - **`global_brightness` is a module-level global** (separately in each `LEDControl.py`). Every pixel write goes through `limited_color(...)` to apply it. New animations must too.
-- **`MAX_LEDS = 50`** is a sanity clamp in both services (raised from 20, which was too low for real marquees — a 21-LED cabinet hit it). The real power mitigation is `global_brightness`/`limited_color`; strips above ~20 LEDs should be driven from an external 5V supply, not the Pi's pins. Keep the value identical in both `LEDControl.py` forks.
+- **`MAX_LEDS = 21`** is a deliberate power-safety clamp in both services, sized for the Pi's 5V rail. Longer strips are rejected on purpose — to run more, raise this value **manually** AND power the strip from an **external 5V supply** (don't pull it from the Pi's pins). Keep the value identical in both `LEDControl.py` forks.
 - **Config writes are surgical, not full rewrites.** `_save_config()` uses regex to patch one key inside a `[section]` so user comments in `ledcontrol.toml` survive. Don't replace it with a `tomli_w`-style dump.
 - **Animation choices live in `argparse`** at [LEDControl.py:585](LEDControl.py#L585) and the matching line in `batocera/LEDControl.py`. When you add an animation, update both `argparse` lists, the `if animate == ...` ladder in `main()`, the `COLOR_MAP`-adjacent docs in [README.md](README.md), and the UI's animation list in `retro-led.py`.
 

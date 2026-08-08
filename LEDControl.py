@@ -31,7 +31,7 @@ SPI_BUS = 0
 SPI_DEVICE = 0
 global_brightness = 1.0
 
-MAX_LEDS = 50  # sanity ceiling; power strips >~20 LEDs from an external 5V supply, not the Pi
+MAX_LEDS = 21  # power-safety clamp for the Pi 5V rail; to run a longer strip, raise this manually AND power it from an external 5V supply
 
 COLOR_MAP = {
     'red':    Color(255, 0, 0),
