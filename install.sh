@@ -253,10 +253,12 @@ echo ""
 echo "11. Setting up rsync deploy alias..."
 BASHRC="/home/pi/.bashrc"
 if ! grep -q "retro-led-sync" "$BASHRC" 2>/dev/null; then
-    cat >> "$BASHRC" << 'ALIAS'
+    # Point the alias at the git CHECKOUT ($REPO_DIR), not the runtime copy in
+    # $PROJECT_DIR — the latter isn't a git repo, so `git pull` there fails.
+    cat >> "$BASHRC" << ALIAS
 
 # RetroLED: pull latest from GitHub and reinstall
-alias retro-led-sync='cd /home/pi/LEDControl && git pull && bash install.sh'
+alias retro-led-sync='cd "$REPO_DIR" && git pull && bash install.sh'
 ALIAS
     echo "   Added 'retro-led-sync' alias to ~/.bashrc"
 fi
@@ -272,5 +274,5 @@ echo "  1. Edit /home/pi/ledcontrol.toml to set your LED count and defaults"
 echo "  2. Restart EmulationStation"
 echo "  3. Run 'retro-led-sync' any time to pull and reinstall latest"
 echo ""
-echo "Quick test:"
-echo "  $PYTHON $PROJECT_DIR/LEDControl.py --animate kitt --color red"
+echo "Quick test (sends a command to the already-running service):"
+echo "  $PYTHON $PROJECT_DIR/led-ws-cmd.py --animate kitt --color red"
